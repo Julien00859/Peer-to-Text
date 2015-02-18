@@ -1,5 +1,6 @@
 import socket
 import select
+from random import randrange
 
 server = socket.socket()
 server.bind(("localhost",1234))
@@ -14,6 +15,9 @@ while running:
 		socket, adress = server.accept()
 		clients[socket] = {}
 		clients[socket]["name"] = clients[socket]["IP"] = adress[0]
+		ping = randrange(10000)
+		clients[socket]["ping"] = ping
+		socket.send(("PING %i" % ping).encode("UTF-8"))
 
 		print("[+] {}".format(adress[0]))
 
@@ -25,6 +29,7 @@ while running:
 				for line in msg.split("\n"):
 					word = line.split(" ")
 
-					#Liste des commandes:
-					#Auth user password
-
+					if len(word) > 1:
+						if word[0] == "PONG":
+							print("%s PONG %i" % (clients[client]["name"], int(word[1])))
+							assert int(word[1]) == clients[client]["ping"]

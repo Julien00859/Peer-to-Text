@@ -1,11 +1,31 @@
+import select
 import socket
+import threading
+from getpass import getpass
 
-server = socket.socket()
-server.connect(("localhost", 1234))
+class server(threading.Thread):
+	def __init__(self, host, port=1234):
+		threading.Thread.__init__(self)
+		self.host = host
+		self.port = port
+		self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		self.server.connect((self.host, self.port))
+		self.running = True
 
-while True:
-	msg = input()
-	server.send(msg.encode("UTF-8"))
-	if msg == "quit":
-		server.close()
-		break
+	def run(self):
+		while self.running:
+			NewMessage, wlist, xlist = select.select([self.server], [], [], 1)
+			if len(NewMessage) > 0:
+				msg = self.server.recv(1024).decode("UTF-8")
+				for line in msg.split("\r\n"):
+					cmd = line.split(" ")
+					if len(cmd) > 1:
+						if cmd[0] == "PING":
+							print(msg)
+							self.server.send(("PONG %i" % int(cmd[1])).encode("UTF-8"))
+
+server = server(input("Host: "), int(input("Port: ")))
+server.start()
+
+input()
+server.running = False

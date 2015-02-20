@@ -1,6 +1,5 @@
 import select
 import socket
-import threading
 import time
 from random import randrange
 
@@ -16,11 +15,14 @@ def ping(socket):
 	socket.send(("PING %i %d" % (PingRND, PingTime)).encode("UTF-8"))
 	return (PingRND, PingTime)
 
-def kick(socket):
+def kick(socket, msg):
 	"""On supprime le socket donné de la mapping et on le ferme."""
-	print("Kicked")
+	print(msg)
 	del clients[socket]
-	socket.close()
+	try:
+		socket.close()
+	except:
+		pass
 
 
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -57,13 +59,15 @@ while running:
 				try:
 					msg = client.recv(1024).decode("UTF-8")
 				except ConnectionAbortedError:
-					print("Connection lost")
-					del clients[client]
+					kick(client, "Connection Aborted")
 				else:
 
 					#Pour chaque ligne du message, on va spliter la ligne pour avoir une liste comme ceci: ["PONG",12485]
 					for line in msg.split("\r\n"):
 						cmd = line.split(" ")
+
+						"""La discution avec le client se fait ici cmd[0] contient la commande envoyée par le client,
+						ce qui suit sont des arguments. Pour suivre l'exemple de IRC, les commandes sont en majuscule"""
 
 						#Réponse à une requête Ping. Doit avoir en argument 1 le même nombre que PingRND (cf Ping())
 						if cmd[0] == "PONG":
@@ -75,9 +79,10 @@ while running:
 								assert clients[client]["ping"][0] == int(cmd[1])
 								print("Pong !")
 								clients[client]["ping"] = (-1, time.time())
+
 							except:
-								print("Pong Error")
-								kick(client)
+								kick(client, "Pong Error")
+
 
 
 	"""Ping Checkout"""
@@ -95,10 +100,10 @@ while running:
 		if clients[client]["ping"][0] != -1: #Cas n°1
 			if timeNow - clients[client]["ping"][1] > 30:
 				#La connexion a expiré
-				print("Ping timeout !")
-				kick(client)
+				kick(client, "Ping Timeout")
 		else: #Cas n°1
 			if timeNow - clients[client]["ping"][1] > 30:
 				clients[client]["ping"] = ping(client) #Si il y a eu 30 secondes depuis le dernier ping, on ping de nouveau
 	del clientsList #J'avais dis que c'était temporaire :p
+	"""End of Ping Checkout"""
 			

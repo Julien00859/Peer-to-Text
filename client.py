@@ -14,22 +14,18 @@ class server(threading.Thread):
 	def run(self):
 		self.running = True
 		while self.running:
-			try:
-				NewMessage, wlist, xlist = select.select([self.server], [], [], 1)
-				if len(NewMessage) > 0:
-					msg = self.server.recv(1024).decode("UTF-8")
-					for line in msg.split("\r\n"):
-						cmd = line.split(" ")
-						if len(cmd) > 1:
-							if cmd[0] == "PING":
-								print(msg)
-								self.server.send(("PONG %i" % int(cmd[1])).encode("UTF-8"))
-			except OSError:
-				pass
+			NewMessage, wlist, xlist = select.select([self.server], [], [], 1)
+			if len(NewMessage) > 0:
+				msg = self.server.recv(1024).decode("UTF-8")
+				for line in msg.split("\r\n"):
+					cmd = line.split(" ")
+					if len(cmd) > 1:
+						if cmd[0] == "PING":
+							print(msg)
+							self.server.send(("PONG %i" % int(cmd[1])).encode("UTF-8"))
 
 	def stop(self):
 		self.running = False
-		self.server.close()
 
 server = server("localhost", 1234)
 server.start()

@@ -10,9 +10,9 @@ class server(threading.Thread):
 		self.port = port
 		self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.server.connect((self.host, self.port))
-		self.running = True
 
 	def run(self):
+		self.running = True
 		while self.running:
 			try:
 				NewMessage, wlist, xlist = select.select([self.server], [], [], 1)

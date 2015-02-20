@@ -6,7 +6,7 @@
 
 ### Who do I talk to? ###
 
-*CASTIAUX Julien (Julien008) - Développeur
-*LANDAU Adam (MrPlonker) - Développeur
-*FELTZ Norman (normanfeltz) - Développeur
+CASTIAUX Julien (Julien008) - Développeur
+LANDAU Adam (MrPlonker) - Développeur
+FELTZ Norman (normanfeltz) - Développeur
 

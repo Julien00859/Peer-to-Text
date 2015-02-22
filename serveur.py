@@ -1,109 +1,165 @@
 import select
 import socket
 import time
+import json
+import hashlib
 from random import randrange
 
-def ping(socket):
-	"""On envoit une requête Ping à socket, cette requête contient:
-	1) Un nombre aléatoire compris entre 0 et 10.000 que le client devra retourner
-	2) L'heure à laquel la requête a été envoyé
-	Le nombre ainsi que l'heure sont retournés et seront stoqués dans clients[socket]["time"]
-	Lorsque que le socket pingué renvoit un Pong, on vérifie que le nombre envoyé est bien le nombre stocké,
-	ensuite on défini la valeur du nombre alatoire sur -1 afin qu'on sache qu'il a été pingué."""
-	PingRND = randrange(10000)
-	PingTime = time.time()
-	socket.send(("PING %i %d" % (PingRND, PingTime)).encode("UTF-8"))
-	return (PingRND, PingTime)
+class Server:
+	def __init__(self, host, port, listen=None):
+		"""Initiation du serveur sur host et écoute sur port.
 
-def kick(socket, msg):
-	"""On supprime le socket donné de la mapping et on le ferme."""
-	print(msg)
-	del clients[socket]
-	try:
+		host: (str) l'adresse sur laquel le socket sera initialisé.
+
+		port: (int) le port sur lequel le socket écoutera
+
+		listen: (int) le nombre de socket à écouter simultanément. Valeur par défault mise sur 5"""
+
+		self.host = host
+		self.port = port
+		if listen!=None: self.listen=listen
+		else: self.listen = 5
+
+		self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		self.server.bind((self.host, self.port))
+		self.server.listen(self.listen)
+
+	def run(self):
+		"""Boucle principale d'écoute sur le serveur initialisé
+
+		run: (bool) permet de stopper la boucle principale lorsque mis sur false
+
+		clients: (dict) mapping contenant la liste des socket-client en key et leurs infos en value"""
+
+		self.run = True
+		self.clients = {}
+
+		#Boucle principale, les grosses méthode seront dans des fonctions afin d'y apporter une docstring approprié
+		while self.run:
+
+			#Acceptation des nouveaux clients
+			newClients, wlist, xlist = select.select([server], [], [], 0.1)
+			for client in newClients:
+				socket, adress = server.accept()
+				clients[socket] = {}
+				self.ping(socket)
+
+			#Écoute les clients ayant qqch à dire
+			if len(clients.keys()) > 0:
+				newMessages, wlist, xlist = select.select(clients.keys(), [], [], 0.5)
+				if len(newMessages) > 0:
+					for client in newMessages:
+
+						try:
+							msg = client.recv(1024).decode("UTF-8")
+						except ConnectionAbortedError:
+							kick(client, "Connection Aborted")
+						else:
+							for line in msg.split("\r\n"):
+								cmd = line.split(" ")
+
+								if cmd[0] == "PONG":
+									self.pong(client, cmd)
+
+								if cmd[0] == "AUTH":
+									self.auth(client, cmd)
+
+				#Ping check
+				timeNow = time.time()
+				tempClientsList = []
+				for client in clients.keys():
+					tempClientsList.append(client)
+				for client in tempClientsList:
+					if clients[client]["ping"][0] != -1:
+						if timeNow - clients[client]["ping"][1] > 30:
+							kick(client, "Ping Timeout")
+					else:
+						if timeNow - clients[client]["ping"][1] > 30:
+							clients[client]["ping"] = ping(client)
+				del clientsList
+
+	def pong(sender, cmd):
+		"""Commande PONG met la valeur PingRND sur -1 et le PingTime sur l'heure actuelle
+
+		sender: le socket qui a envoyé la commande
+
+		cmd[]: La liste contenant l'ensemble des mots de la commande
+
+		cmd[0]: La commande PONG
+
+		cmd[1]: Le nombre aléatoire envoyé par ping que l'utilisateur a du réenvoyer
+
+		PingRND: Mis sur -1 que le PingCheck() ne kick pas l'utilisateur
+
+		PingTime: Mis sur l'heure actuelle afin de permettre à PingCheck() de réenvoyer une requête PING d'ici 30 secondes"""
+
+		try:
+			assert self.clients[sender]["ping"][0] == int(cmd[1])
+		except (AssertionError, IndexError, ValueError):
+			self.kick(sender, "Pong Failed")
+		else:
+			clients[sender]["ping"] = (-1, time.time())
+
+	def auth(sender, cmd):
+		"""Commande AUTH permet d'authentifier le socket
+
+		sender: le socket qui a envoyé la commande
+
+		cmd[]: la liste contenant l'emsemble des mots de la commande
+
+		cmd[0] la commande AUTH
+
+		cmd[1] l'email de l'utilisateur
+
+		cmd[2] le mot de passe hashé en SHA1 de cet utilisateur"""
+
+		try:
+			#Le code ici est temporaire
+
+		except (AssertionError, IndexError):
+			kick(sender, "AUTH Failed")
+
+
+	def mapping(self, socket=None):
+		"""Simple méthode qui affiche toute la mapping d'un client donné ou tout le monde si personne n'a été donné
+
+		clients={ #Mapping générale
+			socket={ #Un socket-client
+				"ping":tulpe(
+					int(PingRND), #CF Ping()
+					int(PingTime) #CF Ping()
+				),
+				"username":str(), #Le nom d'utilisateur à afficher
+				"email":str(), #L'email servant lors de l'authentification
+				"password": sha1(password), #Le mot de passe servant lors de l'authentification hashé en SHA1
+				"authentificated": bool(), #Si le client est authentifié ou non
+				"IP": str() #Servant d'altérnative à username
+			}
+		}
+		"""
+		if socket==None: return self.clients
+		else: return self.clients[socket]
+
+	def ping(self, socket):
+		"""Envoie une requête Ping au socket donné et enregistre des infos dans la mapping clients
+
+		PingRND: Un nombre aléatoire compris entre 10k et 100k envoyé au socket et que celui-ci devra retourner
+
+		PingTime: L'heure à laquel la requête a été envoyé, permet d'évaluer la vitesse (à la seconde près) et de détecter une exception PingTimeOut"""
+
+		PingRND = randrange(10000,100000)
+		PingTime = time.time()
+		socket.send(("PING %i %d" % (PingRND, PingTime)).encode("UTF-8"))
+		self.clients[socket]["ping"] = (PingRND, PingTime)
+
+	def kick(self, socket, msg=None):
+		"""Permet de fermer la connexion avec le socket donné et de le supprimer de la mapping clients
+
+		socket: le socket à fermer
+
+		msg: le message de kick à afficher. Default: Kicked"""
+
 		socket.close()
-	except:
-		pass
+		del self.clients[socket]
 
-
-server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server.bind(("localhost",1234))
-server.listen(5)
-
-#Mapping client
-clients = {}
-#clients[socket] = {}
-#clients[socket]["ping"] = (PingRND, PingTime)
-#clients[socket]["pong"] = []
-
-
-#Boucle principale
-running = True
-while running:
-
-	#On select le socket server pour voir s'il y a des nouveau clients
-	newClients, wlist, xlist = select.select([server], [], [], 0.1)
-	for client in newClients:
-		#Pour chaque nouveau client, on l'accepte, on le sauvegarde dans la mapping et on le ping.
-		socket, adress = server.accept()
-		clients[socket] = {}
-		clients[socket]["ping"] = ping(socket)
-
-	#On select cette fois-ci la liste complete des clients (s'il y en a) pour voir s'ils ont qqch à nous dire
-	if len(clients.keys()) > 0:
-		newMessages, wlist, xlist = select.select(clients.keys(), [], [], 0.5)
-		if len(newMessages) > 0:
-			for client in newMessages:
-
-				#On reçoit le message et on le parse pour en faire qqch. Si la connexion a été interrompu
-				#d'une manière fortuite, le supprime le client de la mapping
-				try:
-					msg = client.recv(1024).decode("UTF-8")
-				except ConnectionAbortedError:
-					kick(client, "Connection Aborted")
-				else:
-
-					#Pour chaque ligne du message, on va spliter la ligne pour avoir une liste comme ceci: ["PONG",12485]
-					for line in msg.split("\r\n"):
-						cmd = line.split(" ")
-
-						"""La discution avec le client se fait ici cmd[0] contient la commande envoyée par le client,
-						ce qui suit sont des arguments. Pour suivre l'exemple de IRC, les commandes sont en majuscule"""
-
-						#Réponse à une requête Ping. Doit avoir en argument 1 le même nombre que PingRND (cf Ping())
-						if cmd[0] == "PONG":
-							#Une exception est levée si:
-							# 1) L'assert fail: le nombre retourné n'est pas le même que le nombre stocké
-							# 2) Le convertion str > int a fail
-							# 3) L'argument n°1 n'existe pas
-							try:
-								assert clients[client]["ping"][0] == int(cmd[1])
-								print("Pong !")
-								clients[client]["ping"] = (-1, time.time())
-
-							except:
-								kick(client, "Pong Error")
-
-
-
-	"""Ping Checkout"""
-	timeNow = time.time() 	#On sauvegarde une valeur de time pour ne pas à avoir toujours la recalculer
-	#On crée une liste temporaire qui contiendra le nom des socket afin de pouvoir modifier clients.keys()
-	clientsList = []
-	for client in clients.keys():
-		clientsList.append(client)
-
-	#Chaque client aura soit un PingRND d'une valeur supérieur à 0, ce qui signifie qu'il est en train de se faire ping)
-	#Soit un PingRND de valeur -1, ce qui signifie qu'il s'est fait ping ces 30 dernières secondes.
-	# 1° cas: Si après 30 secondes aucun pong n'est arrivé, on kick le client
-	# 2° cas: Après 30 secondes, on re-ping le client
-	for client in clientsList:
-		if clients[client]["ping"][0] != -1: #Cas n°1
-			if timeNow - clients[client]["ping"][1] > 30:
-				#La connexion a expiré
-				kick(client, "Ping Timeout")
-		else: #Cas n°1
-			if timeNow - clients[client]["ping"][1] > 30:
-				clients[client]["ping"] = ping(client) #Si il y a eu 30 secondes depuis le dernier ping, on ping de nouveau
-	del clientsList #J'avais dis que c'était temporaire :p
-	"""End of Ping Checkout"""
-			
+#Lancement de la classe

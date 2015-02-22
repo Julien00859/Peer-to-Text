@@ -1,6 +1,8 @@
 import select
 import socket
 import threading
+import json
+import hashlib
 from getpass import getpass
 
 class server(threading.Thread):
@@ -27,8 +29,12 @@ class server(threading.Thread):
 	def stop(self):
 		self.running = False
 
-server = server("localhost", 1234)
+	def send(self, cmd):
+		self.server.send()
+
+with open("config.json") as json_data:
+	data = json.load(json_data)
+
+server = server(data["connection"]["host"],data["connection"]["port"])
 server.start()
 
-input()
-server.stop()

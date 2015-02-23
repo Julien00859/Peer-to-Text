@@ -19,22 +19,29 @@ class server(threading.Thread):
 			NewMessage, wlist, xlist = select.select([self.server], [], [], 1)
 			if len(NewMessage) > 0:
 				msg = self.server.recv(1024).decode("UTF-8")
+				print(msg)
 				for line in msg.split("\r\n"):
 					cmd = line.split(" ")
 					if len(cmd) > 1:
 						if cmd[0] == "PING":
-							print(msg)
 							self.server.send(("PONG %i" % int(cmd[1])).encode("UTF-8"))
 
 	def stop(self):
 		self.running = False
 
 	def send(self, cmd):
-		self.server.send()
+		self.server.send(cmd.encode("UTF-8"))
 
 with open("config.json") as json_data:
 	data = json.load(json_data)
 
-server = server(data["connection"]["host"],data["connection"]["port"])
+server = server("localhost", 1234)
 server.start()
 
+while True:
+	msg = input()
+	if msg == "quit":
+		server.stop()
+		break
+	else:
+		server.send(msg)

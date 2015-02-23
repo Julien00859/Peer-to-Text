@@ -1,4 +1,8 @@
 {
+	"connection":{
+		"host":"localhost",
+		"port":1234
+	},
 	"users":{
 		"Julien.castiaux@gmail.com":{
 			"password":"Test1234",

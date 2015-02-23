@@ -3,9 +3,22 @@ import socket
 import time
 import json
 import hashlib
+from threading import Thread
 from random import randrange
 
-class Server:
+def log(msg, status="INFO", doIprint=True, doIsave=True):
+	"""msg = message to log; file = file where put the message; status = string that will be between []"""
+	mytime = time.strftime("%d/%m/%y %H:%M:%S")
+	message = mytime + " [" + str(status) + "] " + str(msg)
+	if doIprint:
+		print(message)
+
+	if doIsave:
+		with open("log.txt", "a") as f:
+			f.write(message + "\r\n")
+	return message
+
+class Server(Thread):
 	def __init__(self, host, port, listen=None):
 		"""Initiation du serveur sur host et écoute sur port.
 
@@ -23,6 +36,7 @@ class Server:
 		self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.server.bind((self.host, self.port))
 		self.server.listen(self.listen)
+		Thread.__init__(self) 
 
 	def run(self):
 		"""Boucle principale d'écoute sur le serveur initialisé
@@ -38,15 +52,18 @@ class Server:
 		while self.run:
 
 			#Acceptation des nouveaux clients
-			newClients, wlist, xlist = select.select([server], [], [], 0.1)
+			newClients, wlist, xlist = select.select([self.server], [], [], 0.1)
 			for client in newClients:
-				socket, adress = server.accept()
-				clients[socket] = {}
-				self.ping(socket)
+				socket, adress = self.server.accept()
+				log("[+] %s" % adress[0])
+				self.clients[socket] = {}
+				self.clients[socket]["IP"] = adress[0]
+				self.clients[socket]["authentificated"] = False
+				self.clients[socket]["ping"] = self.ping(socket)
 
 			#Écoute les clients ayant qqch à dire
-			if len(clients.keys()) > 0:
-				newMessages, wlist, xlist = select.select(clients.keys(), [], [], 0.5)
+			if len(self.clients.keys()) > 0:
+				newMessages, wlist, xlist = select.select(self.clients.keys(), [], [], 0.5)
 				if len(newMessages) > 0:
 					for client in newMessages:
 
@@ -57,6 +74,7 @@ class Server:
 						else:
 							for line in msg.split("\r\n"):
 								cmd = line.split(" ")
+								log(" ".join([cmd[x] for x in range(1, len(cmd))]), status=cmd[0])
 
 								if cmd[0] == "PONG":
 									self.pong(client, cmd)
@@ -67,18 +85,18 @@ class Server:
 				#Ping check
 				timeNow = time.time()
 				tempClientsList = []
-				for client in clients.keys():
+				for client in self.clients.keys():
 					tempClientsList.append(client)
 				for client in tempClientsList:
-					if clients[client]["ping"][0] != -1:
-						if timeNow - clients[client]["ping"][1] > 30:
+					if self.clients[client]["ping"][0] != -1:
+						if timeNow - self.clients[client]["ping"][1] > 30:
 							kick(client, "Ping Timeout")
 					else:
-						if timeNow - clients[client]["ping"][1] > 30:
-							clients[client]["ping"] = ping(client)
-				del clientsList
+						if timeNow - self.clients[client]["ping"][1] > 30:
+							self.clients[client]["ping"] = self.ping(client)
+				del tempClientsList
 
-	def pong(sender, cmd):
+	def pong(self, sender, cmd):
 		"""Commande PONG met la valeur PingRND sur -1 et le PingTime sur l'heure actuelle
 
 		sender: le socket qui a envoyé la commande
@@ -95,12 +113,12 @@ class Server:
 
 		try:
 			assert self.clients[sender]["ping"][0] == int(cmd[1])
-		except (AssertionError, IndexError, ValueError):
+		except (AssertionError, IndexError, ValueError, TypeError):
 			self.kick(sender, "Pong Failed")
 		else:
-			clients[sender]["ping"] = (-1, time.time())
+			self.clients[sender]["ping"] = (-1, time.time())
 
-	def auth(sender, cmd):
+	def auth(self, sender, cmd):
 		"""Commande AUTH permet d'authentifier le socket
 
 		sender: le socket qui a envoyé la commande
@@ -113,12 +131,16 @@ class Server:
 
 		cmd[2] le mot de passe hashé en SHA1 de cet utilisateur"""
 
-		try:
-			#Le code ici est temporaire
-
-		except (AssertionError, IndexError):
-			kick(sender, "AUTH Failed")
-
+		with open("config.json") as json_data:
+			try:
+				assert json.load(json_data)["users"][cmd[1]]["password"] == cmd[2]
+				assert self.clients[sender]["authentificated"] == False
+			except (AssertionError, IndexError):
+				sender.send("Authentication Failed !".encode("UTF-8"))
+				#hashlib.sha1((cmd[2]).encode()).hexdigest()
+			else:
+				self.clients[sender]["authentificated"] = True
+				sender.send("Successful Authentication".encode("UTF-8"))
 
 	def mapping(self, socket=None):
 		"""Simple méthode qui affiche toute la mapping d'un client donné ou tout le monde si personne n'a été donné
@@ -150,7 +172,8 @@ class Server:
 		PingRND = randrange(10000,100000)
 		PingTime = time.time()
 		socket.send(("PING %i %d" % (PingRND, PingTime)).encode("UTF-8"))
-		self.clients[socket]["ping"] = (PingRND, PingTime)
+		log(PingRND, status="Ping")
+		return (PingRND, PingTime)
 
 	def kick(self, socket, msg=None):
 		"""Permet de fermer la connexion avec le socket donné et de le supprimer de la mapping clients
@@ -159,7 +182,29 @@ class Server:
 
 		msg: le message de kick à afficher. Default: Kicked"""
 
+		if msg==None: msg="Kicked"
+		log("Kicking %s for %s !" % (self.clients[socket]["IP"], msg), status="KICK")
 		socket.close()
 		del self.clients[socket]
 
+	def stop(self):
+		log("Stopping Server")
+		tempClientsList = []
+		for client in self.clients.keys():
+			tempClientsList.append(client)
+		for client in tempClientsList:
+			self.kick(client, "Stopping Server")
+		del tempClientsList
+		self.run = False
+
 #Lancement de la classe
+server = Server("localhost", 1234)
+server.start()
+
+while True:
+	msg = input()
+	if msg == "stop":
+		server.stop()
+		break
+	elif msg == "info":
+		print(server.mapping())

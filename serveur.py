@@ -2,21 +2,12 @@ import select
 import socket
 import time
 import json
-import hashlib
+from hashlib import sha1
 from threading import Thread
 from random import randrange
+import logging
 
-def log(msg, status="INFO", doIprint=True, doIsave=True):
-	"""msg = message to log; file = file where put the message; status = string that will be between []"""
-	mytime = time.strftime("%d/%m/%y %H:%M:%S")
-	message = mytime + " [" + str(status) + "] " + str(msg)
-	if doIprint:
-		print(message)
-
-	if doIsave:
-		with open("log.txt", "a") as f:
-			f.write(message + "\r\n")
-	return message
+logging.getLogger().setLevel(logging.INFO)
 
 class Server(Thread):
 	def __init__(self, host, port, listen=None):
@@ -55,7 +46,6 @@ class Server(Thread):
 			newClients, wlist, xlist = select.select([self.server], [], [], 0.1)
 			for client in newClients:
 				socket, adress = self.server.accept()
-				log("[+] %s" % adress[0])
 				self.clients[socket] = {}
 				self.clients[socket]["IP"] = adress[0]
 				self.clients[socket]["authentificated"] = False
@@ -69,18 +59,21 @@ class Server(Thread):
 
 						try:
 							msg = client.recv(1024).decode("UTF-8")
-						except ConnectionAbortedError:
-							kick(client, "Connection Aborted")
+						except (ConnectionAbortedError, OSError):
+							pass
 						else:
 							for line in msg.split("\r\n"):
 								cmd = line.split(" ")
-								log(" ".join([cmd[x] for x in range(1, len(cmd))]), status=cmd[0])
+								logging.info(" ".join(cmd))
 
 								if cmd[0] == "PONG":
 									self.pong(client, cmd)
 
-								if cmd[0] == "AUTH":
+								elif cmd[0] == "AUTH":
 									self.auth(client, cmd)
+
+								elif cmd[0] == "QUIT":
+									self.kick(client, msg="Quit")
 
 				#Ping check
 				timeNow = time.time()
@@ -93,7 +86,10 @@ class Server(Thread):
 							kick(client, "Ping Timeout")
 					else:
 						if timeNow - self.clients[client]["ping"][1] > 30:
-							self.clients[client]["ping"] = self.ping(client)
+							try:
+								self.clients[client]["ping"] = self.ping(client)
+							except ConnectionResetError:
+								self.kick(socket, "Ping Timeout")
 				del tempClientsList
 
 	def pong(self, sender, cmd):
@@ -133,13 +129,15 @@ class Server(Thread):
 
 		with open("config.json") as json_data:
 			try:
-				assert json.load(json_data)["users"][cmd[1]]["password"] == cmd[2]
+				assert sha1(json.load(json_data)["users"][cmd[1]]["password"].encode()).hexdigest() == cmd[2]
 				assert self.clients[sender]["authentificated"] == False
-			except (AssertionError, IndexError):
+			except (AssertionError, IndexError, KeyError):
+				logging.warning("Authentication Failed for %s" % cmd[1])
 				sender.send("Authentication Failed !".encode("UTF-8"))
 				#hashlib.sha1((cmd[2]).encode()).hexdigest()
 			else:
 				self.clients[sender]["authentificated"] = True
+				logging.info("Successful Authentication for %s" % cmd[1])
 				sender.send("Successful Authentication".encode("UTF-8"))
 
 	def mapping(self, socket=None):
@@ -172,7 +170,7 @@ class Server(Thread):
 		PingRND = randrange(10000,100000)
 		PingTime = time.time()
 		socket.send(("PING %i %d" % (PingRND, PingTime)).encode("UTF-8"))
-		log(PingRND, status="Ping")
+		logging.debug("PING " + str(PingRND))
 		return (PingRND, PingTime)
 
 	def kick(self, socket, msg=None):
@@ -183,12 +181,13 @@ class Server(Thread):
 		msg: le message de kick à afficher. Default: Kicked"""
 
 		if msg==None: msg="Kicked"
-		log("Kicking %s for %s !" % (self.clients[socket]["IP"], msg), status="KICK")
-		socket.close()
+		logging.warning("Kicking %s for %s !" % (self.clients[socket]["IP"], msg))
+		socket.send("KICKED".encode("UTF-8"))
 		del self.clients[socket]
+		socket.close()
 
 	def stop(self):
-		log("Stopping Server")
+		logging.warning("Stopping Server")
 		tempClientsList = []
 		for client in self.clients.keys():
 			tempClientsList.append(client)

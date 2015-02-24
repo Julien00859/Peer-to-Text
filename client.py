@@ -4,6 +4,7 @@ import threading
 import json
 import hashlib
 from getpass import getpass
+from hashlib import sha1
 
 class server(threading.Thread):
 	def __init__(self, host, port=1234):
@@ -22,11 +23,13 @@ class server(threading.Thread):
 				print(msg)
 				for line in msg.split("\r\n"):
 					cmd = line.split(" ")
-					if len(cmd) > 1:
-						if cmd[0] == "PING":
-							self.server.send(("PONG %i" % int(cmd[1])).encode("UTF-8"))
+					if cmd[0] == "PING":
+						self.server.send(("PONG %i" % int(cmd[1])).encode("UTF-8"))
+					elif cmd[0] == "KICKED":
+						self.running = False
 
 	def stop(self):
+		self.send("QUIT")
 		self.running = False
 
 	def send(self, cmd):
@@ -41,7 +44,9 @@ server.start()
 while True:
 	msg = input()
 	if msg == "quit":
-		server.stop()
+		if server.running: server.stop()
 		break
+	elif msg == "auth":
+		server.send("AUTH %s %s" % (input("Email: "), sha1(getpass().encode()).hexdigest()))
 	else:
 		server.send(msg)

@@ -1,12 +1,11 @@
 ### What is this repository for? ###
 
-1) Le serveur (server-side) qui gèrera les fichiers hébergés sur le serveur, qui aura accès aux bases de données pour les permissions et les authentifications. Dans un premier temps, ce sera le serveur qui sera l'hôte des fichiers, la porté vers le peer-to-peer sera assuré par la suite quand le programme aura atteint une certaine maturité.
+1) Un serveur unique sur nos machines qui s'occupera d'authentifier les clients, de donner un accès FTP à son espace de travail et de gérer les permissions de chaque fichier
 
-2) Un client (client-side) qui sera un plugin our Sublim-Text (écris également en python) et qui assurera la porté vers le peer-to-peer. Ce client ne sera qu'un exemple d'utilisation du protocol, une doc complète sera fournie une fois le programme achevé afin de le porter vers d'autres langages (par exemple le C++ afin d'en faire également un plugin pour Notepad++)
+2) Des clients pouvant gérer un session de live-coding comme décris par notre protocol.
+
+Les deux fichiers sont écris en Python, le langage que je domine le mieux pour le moment mais une documentation claire et précise sera disponible une fois mon prototype client terminé afin de permettre la migration vers d'autres langages. De plus, le protocol utilisé permet aussi bien de coder son propre IDE que d'en faire un simple plugin pour un traitement de texte déjà existant. J'ai autre autre pour projet d'en faire un plugin pour l'excelent Sublim-Text 3.
 
 ### Who do I talk to? ###
 
 CASTIAUX Julien (Julien008) - Développeur
-LANDAU Adam (MrPlonker) - Développeur
-FELTZ Norman (normanfeltz) - Développeur
-

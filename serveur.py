@@ -38,6 +38,7 @@ class Server(Thread):
 
 		self.run = True
 		self.clients = {}
+		self.files = {}
 
 		#Boucle principale, les grosses méthode seront dans des fonctions afin d'y apporter une docstring approprié
 		while self.run:
@@ -47,9 +48,12 @@ class Server(Thread):
 			for client in newClients:
 				socket, adress = self.server.accept()
 				self.clients[socket] = {}
-				self.clients[socket]["IP"] = adress[0]
-				self.clients[socket]["authentificated"] = False
 				self.clients[socket]["ping"] = self.ping(socket)
+				self.clients[socket]["username"] = ""
+				self.clients[socket]["email"] = ""
+				self.clients[socket]["authentificated"] = False
+				self.clients[socket]["IP"] = adress[0]
+				#self.clients[socket]["host"] = []
 
 			#Écoute les clients ayant qqch à dire
 			if len(self.clients.keys()) > 0:
@@ -74,6 +78,13 @@ class Server(Thread):
 
 								elif cmd[0] == "QUIT":
 									self.kick(client, msg="Quit")
+
+								if self.clients[socket]["authentificated"]:
+									if cmd[0] == "OPEN":
+										self.open(client, cmd)
+
+									if cmd[0] == "WRITE":
+										self.write(client, cmd)
 
 				#Ping check
 				timeNow = time.time()
@@ -130,15 +141,99 @@ class Server(Thread):
 		with open("config.json") as json_data:
 			try:
 				assert sha1(json.load(json_data)["users"][cmd[1]]["password"].encode()).hexdigest() == cmd[2]
-				assert self.clients[sender]["authentificated"] == False
 			except (AssertionError, IndexError, KeyError):
 				logging.warning("Authentication Failed for %s" % cmd[1])
 				sender.send("Authentication Failed !".encode("UTF-8"))
-				#hashlib.sha1((cmd[2]).encode()).hexdigest()
 			else:
-				self.clients[sender]["authentificated"] = True
-				logging.info("Successful Authentication for %s" % cmd[1])
-				sender.send("Successful Authentication".encode("UTF-8"))
+				if not self.clients[sender]["authentificated"]:
+					self.clients[sender]["authentificated"] = True
+					logging.info("Successful Authentication for %s" % cmd[1])
+					sender.send("Successful Authentication".encode("UTF-8"))
+				else:
+					logging.warning("Authentication Failed for %s (Already Authentificated)" % cmd[1])
+					sender.send("Authentication Failed ! (Already Authentificated)".encode("UTF-8"))
+
+	def open(self, sender, cmd):
+		"""Commande OPEN permet d'ouvrir un fichier
+
+		sender: le socket qui a envoyé la commande
+
+		cmd[]: la liste contenant l'emsemble des mots de la commande
+
+		cmd[0] la commande OPEN
+
+		cmd[1] le fichier à ouvrir"""
+		try:
+			self.files[cmd[1]]["users"].append(sender)
+		except KeyError:
+			try:
+				with open(cmd[1], "r") as f:
+					self.files[cmd[1]] = {"users":[sender],"content"=f.read()}
+			except FileNotFoundError:
+				with open(cmd[1], "w") as f:
+					self.files[cmd[1]] = {"users":[sender],"content"=""}
+		except IndexError:
+			sender.send("ERROR OPEN command: OPEN <file>".encode())
+
+	def write(self, sender, cmd):
+		"""Commande WRITE permet d'écrire sur un fichier ouvert
+
+		sender: le socket qui a envoyé la commande
+
+		cmd[]: la liste contenant l'emsemble des mots de la commande
+
+		cmd[0] la commande WRITE
+
+		cmd[1] le fichier sur lequel écrire
+
+		cmd[2] l'index (de type tkinter.Text().index())
+
+		cmd[3] le message à écrire"""
+		try:
+			if self.files[cmd[1]]["users"].count(sender):
+				for client in self.file[cmd[1]]["users"]:
+					if client != sender:
+						client.send(cmd.encode())
+			else:
+				sender.send("ERROR File must be opened first".encode())
+		except IndexError:
+			sender.send("ERROR WRITE command: WRITE <file> <index> <message>".encode())
+
+	def kick(self, socket, msg=None):
+		"""Permet de fermer la connexion avec le socket donné et de le supprimer de la mapping clients
+
+		socket: le socket à fermer
+
+		msg: le message de kick à afficher. Default: Kicked"""
+
+		if msg==None: msg="Kicked"
+		logging.warning("Kicking %s for %s !" % (self.clients[socket]["IP"], msg))
+		socket.send("KICKED".encode("UTF-8"))
+		del self.clients[socket]
+		socket.close()
+
+	def ping(self, socket):
+		"""Envoie une requête Ping au socket donné et enregistre des infos dans la mapping clients
+
+		PingRND: Un nombre aléatoire compris entre 10k et 100k envoyé au socket et que celui-ci devra retourner
+
+		PingTime: L'heure à laquel la requête a été envoyé, permet d'évaluer la vitesse (à la seconde près) et de détecter une exception PingTimeOut"""
+
+		PingRND = randrange(10000,100000)
+		PingTime = time.time()
+		socket.send(("PING %i %d" % (PingRND, PingTime)).encode("UTF-8"))
+		logging.debug("PING " + str(PingRND))
+		return (PingRND, PingTime)
+
+	def stop(self):
+		logging.warning("Stopping Server")
+		tempClientsList = []
+		for client in self.clients.keys():
+			tempClientsList.append(client)
+		for client in tempClientsList:
+			self.kick(client, "Stopping Server")
+		del tempClientsList
+		self.run = False
 
 	def mapping(self, socket=None):
 		"""Simple méthode qui affiche toute la mapping d'un client donné ou tout le monde si personne n'a été donné
@@ -159,42 +254,6 @@ class Server(Thread):
 		"""
 		if socket==None: return self.clients
 		else: return self.clients[socket]
-
-	def ping(self, socket):
-		"""Envoie une requête Ping au socket donné et enregistre des infos dans la mapping clients
-
-		PingRND: Un nombre aléatoire compris entre 10k et 100k envoyé au socket et que celui-ci devra retourner
-
-		PingTime: L'heure à laquel la requête a été envoyé, permet d'évaluer la vitesse (à la seconde près) et de détecter une exception PingTimeOut"""
-
-		PingRND = randrange(10000,100000)
-		PingTime = time.time()
-		socket.send(("PING %i %d" % (PingRND, PingTime)).encode("UTF-8"))
-		logging.debug("PING " + str(PingRND))
-		return (PingRND, PingTime)
-
-	def kick(self, socket, msg=None):
-		"""Permet de fermer la connexion avec le socket donné et de le supprimer de la mapping clients
-
-		socket: le socket à fermer
-
-		msg: le message de kick à afficher. Default: Kicked"""
-
-		if msg==None: msg="Kicked"
-		logging.warning("Kicking %s for %s !" % (self.clients[socket]["IP"], msg))
-		socket.send("KICKED".encode("UTF-8"))
-		del self.clients[socket]
-		socket.close()
-
-	def stop(self):
-		logging.warning("Stopping Server")
-		tempClientsList = []
-		for client in self.clients.keys():
-			tempClientsList.append(client)
-		for client in tempClientsList:
-			self.kick(client, "Stopping Server")
-		del tempClientsList
-		self.run = False
 
 #Lancement de la classe
 server = Server("localhost", 1234)

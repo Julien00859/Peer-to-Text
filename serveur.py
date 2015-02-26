@@ -7,6 +7,10 @@ from threading import Thread
 from random import randrange
 import logging
 
+#####
+# Juste transférer les WRITE d'un client à l'autre et récupérer le fichier final une fois le dernier client parti :D
+#####
+
 logging.getLogger().setLevel(logging.INFO)
 
 class Server(Thread):
@@ -53,7 +57,7 @@ class Server(Thread):
 				self.clients[socket]["email"] = ""
 				self.clients[socket]["authentificated"] = False
 				self.clients[socket]["IP"] = adress[0]
-				#self.clients[socket]["host"] = []
+				self.clients[socket]["files"] = []
 
 			#Écoute les clients ayant qqch à dire
 			if len(self.clients.keys()) > 0:
@@ -83,8 +87,14 @@ class Server(Thread):
 									if cmd[0] == "OPEN":
 										self.open(client, cmd)
 
-									if cmd[0] == "WRITE":
-										self.write(client, cmd)
+									if self.clients[socket]["files"]:
+										if cmd[0] == "WRITE":
+											self.write(client, cmd)
+
+										if cmd[0] == "SEND":
+											#SEND <file> <len>
+											#socket.recv(len).decode()
+											pass
 
 				#Ping check
 				timeNow = time.time()
@@ -162,7 +172,10 @@ class Server(Thread):
 					sender.send("Authentication Failed ! (Already Authentificated)".encode("UTF-8"))
 
 	def open(self, sender, cmd):
-		"""Commande OPEN permet d'ouvrir un fichier
+		"""Commande OPEN permet d'ouvrir un fichier.
+		Le serveur enverra une commande "SEND <file> <len(file.read().encode("UTF-8")>"
+		Suivi du fichier sous forme d'un classique tableau de char
+		Et pour finir la liste de tous les changements depuis l'ouverture du fichier.
 
 		sender: le socket qui a envoyé la commande
 
@@ -170,17 +183,27 @@ class Server(Thread):
 
 		cmd[0] la commande OPEN
 
-		cmd[1] le fichier à ouvrir"""
+		cmd[1] le fichier à ouvrir
+		"""
 		try:
 			self.files[cmd[1]]["users"].append(sender)
 		except KeyError:
 			try:
-				with open(cmd[1], "r") as f:
-					self.files[cmd[1]] = {"users":[sender],"content"=f.read()}
+				with open(cmd[1], "r") as file:
+					content = file.read()
+					sender.send(("SEND %s %i" % cmd[1], len(content.encode("UTF-8"))).encode())
+					sender.send(content.encode("UTF-8"))
+					for change in self.files[cmd[1]]["changes"]:
+						sender.send(("WRITE %s" % change).encode("UTF-8"))
 				logging.info("New file opened: %s" % cmd[1])
 			except FileNotFoundError:
-				with open(cmd[1], "w") as f:
-					self.files[cmd[1]] = {"users":[sender],"content"=""}
+				with open(cmd[1], "w") as file:
+					self.files[cmd[1]] = {"users":[sender],"changes"=[]}
+				sender.send(("SEND %s 0" % cmd[1]).encode())
+			finally:
+				self.files[cmd[1]] = {"users":[sender],"changes"=[]}
+				self.clients[sender]["files"].append(cmd[1])
+
 		except IndexError:
 			logging.warning("%s miss taping command %s: %s" % (self.clients[sender]["IP"], cmd[0], " ".join(cmd)))
 			sender.send("ERROR OPEN command: OPEN <file>".encode())
@@ -204,6 +227,7 @@ class Server(Thread):
 				for client in self.file[cmd[1]]["users"]:
 					if client != sender:
 						logging.debug("%s: %s" % (self.clients[sender]["IP"], " ".join(cmd)))
+						self.files[cmd[1]]["changes"].append([x for x in cmd if x >= 2])
 						client.send(cmd.encode())
 			else:
 				logging.warning("%s tried to write on %s" % (self.clients[sender]["IP"], cmd[1]))
@@ -212,18 +236,31 @@ class Server(Thread):
 			logging.warning("%s miss taping command %s: %s" % (self.clients[sender]["IP"], cmd[0], " ".join(cmd)))
 			sender.send("ERROR WRITE command: WRITE <file> <index> <message>".encode())
 
-	def kick(self, socket, msg=None):
+	def kick(self, socket, msg=None, file=None):
 		"""Permet de fermer la connexion avec le socket donné et de le supprimer de la mapping clients
 
 		socket: le socket à fermer
 
-		msg: le message de kick à afficher. Default: Kicked"""
+		msg: le message de kick à afficher. Default: Kicked
+
+		file: si on doit seulement kicker un user d'un fichier en particulier
+		"""
 
 		if msg==None: msg="Kicked"
-		logging.warning("Kicking %s for %s !" % (self.clients[socket]["IP"], msg))
-		socket.send("KICKED".encode("UTF-8"))
-		del self.clients[socket]
-		socket.close()
+		if file:
+			logging.warning("Kicking %s from %s for %s !" % (self.clients[socket]["IP"], file, msg))
+			socket.send(("KICKED from %s" % file).encode("UTF-8"))
+			self.files[file].remove(socket)
+		else:
+			logging.warning("Kicking %s for %s !" % (self.clients[socket]["IP"], msg))
+			socket.send("KICKED".encode("UTF-8"))
+			for file in self.clients[socket]["files"]:
+				self.files[file].remove(socket)
+			del self.clients[socket]
+			socket.close()
+
+	def fileKick(self, socket, file):
+
 
 	def ping(self, socket):
 		"""Envoie une requête Ping au socket donné et enregistre des infos dans la mapping clients
@@ -261,7 +298,8 @@ class Server(Thread):
 				"email":str(), #L'email servant lors de l'authentification
 				"password": sha1(password), #Le mot de passe servant lors de l'authentification hashé en SHA1
 				"authentificated": bool(), #Si le client est authentifié ou non
-				"IP": str() #Servant d'altérnative à username
+				"IP": str(), #Servant d'altérnative à username
+				"files": list() #La liste des fichiers ouvert par le client
 			}
 		}
 		"""
@@ -274,7 +312,7 @@ class Server(Thread):
 		files={ #Mapping générale
 			fichier={ #Un fichier random
 				"users":list(), #La liste des sockets lisant ce fichier
-				"content":str() #Le contenu du fichier.
+				"changes": list() #La liste des WRITE depuis l'envoie du fichier au premier client
 			}
 		}
 		"""

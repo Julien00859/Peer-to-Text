@@ -141,14 +141,22 @@ class Server(Thread):
 		with open("config.json") as json_data:
 			try:
 				assert sha1(json.load(json_data)["users"][cmd[1]]["password"].encode()).hexdigest() == cmd[2]
-			except (AssertionError, IndexError, KeyError):
-				logging.warning("Authentication Failed for %s" % cmd[1])
-				sender.send("Authentication Failed !".encode("UTF-8"))
+
+			except AssertionError:
+				logging.warning("Authentication Failed for %s (Wrong Password)" % cmd[1])
+				sender.send("ERROR AUTH: Incorrect password".encode())
+			except KeyError:
+				logging.warning("Authentication Failed for %s (Incorrect mail adress)" % cmd[1])
+				sender.send("ERROR AUTH: Incorrect mail adress".encode())
+			except IndexError:
+				logging.warning("%s miss taping command %s: %s" % (self.clients[sender]["IP"], cmd[0], " ".join(cmd)))
+				sender.send("ERROR AUTH: OPEN <file>".encode())
+
 			else:
 				if not self.clients[sender]["authentificated"]:
 					self.clients[sender]["authentificated"] = True
 					logging.info("Successful Authentication for %s" % cmd[1])
-					sender.send("Successful Authentication".encode("UTF-8"))
+					sender.send("OK AUTH: Successful Authentication".encode("UTF-8"))
 				else:
 					logging.warning("Authentication Failed for %s (Already Authentificated)" % cmd[1])
 					sender.send("Authentication Failed ! (Already Authentificated)".encode("UTF-8"))
@@ -169,10 +177,12 @@ class Server(Thread):
 			try:
 				with open(cmd[1], "r") as f:
 					self.files[cmd[1]] = {"users":[sender],"content"=f.read()}
+				logging.info("New file opened: %s" % cmd[1])
 			except FileNotFoundError:
 				with open(cmd[1], "w") as f:
 					self.files[cmd[1]] = {"users":[sender],"content"=""}
 		except IndexError:
+			logging.warning("%s miss taping command %s: %s" % (self.clients[sender]["IP"], cmd[0], " ".join(cmd)))
 			sender.send("ERROR OPEN command: OPEN <file>".encode())
 
 	def write(self, sender, cmd):
@@ -193,10 +203,13 @@ class Server(Thread):
 			if self.files[cmd[1]]["users"].count(sender):
 				for client in self.file[cmd[1]]["users"]:
 					if client != sender:
+						logging.debug("%s: %s" % (self.clients[sender]["IP"], " ".join(cmd)))
 						client.send(cmd.encode())
 			else:
-				sender.send("ERROR File must be opened first".encode())
+				logging.warning("%s tried to write on %s" % (self.clients[sender]["IP"], cmd[1]))
+				sender.send("ERROR WRITE: File must be opened first".encode())
 		except IndexError:
+			logging.warning("%s miss taping command %s: %s" % (self.clients[sender]["IP"], cmd[0], " ".join(cmd)))
 			sender.send("ERROR WRITE command: WRITE <file> <index> <message>".encode())
 
 	def kick(self, socket, msg=None):
@@ -235,7 +248,7 @@ class Server(Thread):
 		del tempClientsList
 		self.run = False
 
-	def mapping(self, socket=None):
+	def usersMapping(self, socket=None):
 		"""Simple méthode qui affiche toute la mapping d'un client donné ou tout le monde si personne n'a été donné
 
 		clients={ #Mapping générale
@@ -255,6 +268,17 @@ class Server(Thread):
 		if socket==None: return self.clients
 		else: return self.clients[socket]
 
+	def filesMapping(self, file=None):
+		"""Simple méthode qui retourne la mapping files entière ou simplement pour le fichier donné
+
+		files={ #Mapping générale
+			fichier={ #Un fichier random
+				"users":list(), #La liste des sockets lisant ce fichier
+				"content":str() #Le contenu du fichier.
+			}
+		}
+		"""
+
 #Lancement de la classe
 server = Server("localhost", 1234)
 server.start()
@@ -264,5 +288,7 @@ while True:
 	if msg == "stop":
 		server.stop()
 		break
-	elif msg == "info":
-		print(server.mapping())
+	elif msg == "users":
+		print(server.usersMapping())
+	elif msg == "files":
+		print(server.filesMapping())

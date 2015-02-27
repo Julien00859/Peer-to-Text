@@ -7,10 +7,6 @@ from threading import Thread
 from random import randrange
 import logging
 
-#####
-# Juste transférer les WRITE d'un client à l'autre et récupérer le fichier final une fois le dernier client parti :D
-#####
-
 logging.getLogger().setLevel(logging.INFO)
 
 class Server(Thread):
@@ -249,18 +245,15 @@ class Server(Thread):
 		if msg==None: msg="Kicked"
 		if file:
 			logging.warning("Kicking %s from %s for %s !" % (self.clients[socket]["IP"], file, msg))
-			socket.send(("KICKED from %s" % file).encode("UTF-8"))
+			socket.send(("KICKED %s %s" % (file, msg)).encode("UTF-8"))
 			self.files[file].remove(socket)
 		else:
 			logging.warning("Kicking %s for %s !" % (self.clients[socket]["IP"], msg))
-			socket.send("KICKED".encode("UTF-8"))
+			socket.send(("KICKED %s" % msg).encode("UTF-8"))
 			for file in self.clients[socket]["files"]:
 				self.files[file].remove(socket)
 			del self.clients[socket]
 			socket.close()
-
-	def fileKick(self, socket, file):
-
 
 	def ping(self, socket):
 		"""Envoie une requête Ping au socket donné et enregistre des infos dans la mapping clients

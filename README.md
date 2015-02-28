@@ -1,6 +1,8 @@
 # Peer2Text - Le Protocole #
 
-Les deux fichiers sont écris en Python, le langage que je domine le mieux pour le moment mais une documentation claire et précise sera disponible une fois mon prototype client terminé afin de permettre la migration vers d'autres langages. De plus, le protocol utilisé permet aussi bien de coder son propre IDE que d'en faire un simple plugin pour un traitement de texte déjà existant. J'ai autre autre pour projet d'en faire un plugin pour l'excelent Sublime Text 3.
+* Les projet est écrit en Python, un langage à la fois souple, simple et puissant. 
+* Une documentation claire et précise sera disponible une fois le prototype terminé afin de permettre la migration vers d'autres langages.
+* Le protocole permet de créer son propre IDE ou simplement de faire un plugin pour IDE existant (Sublime Text / Notepad ++)
 
 ## L'idée ##
 

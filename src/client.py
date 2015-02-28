@@ -36,10 +36,14 @@ class server(Thread):
 						self.running = False
 
 	def stop(self):
+        """
+        """
 		self.send("QUIT")
 		self.running = False
 
 	def send(self, cmd):
+        """
+        """
 		self.server.send(cmd.encode("UTF-8"))
 
 with open("config.json") as json_data:

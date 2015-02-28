@@ -66,11 +66,9 @@ class Server(Thread):
                 newMessages, wlist, xlist = select.select(self.clients.keys(), [], [], 0.5)
                 if len(newMessages) > 0:
                     for client in newMessages:
+                        logging.debug(client)
                         try:
                             msg = client.recv(1024).decode("UTF-8")
-                        except (ConnectionAbortedError, OSError):
-                            pass
-                        else:
                             for line in msg.split("\r\n"):
                                 cmd = line.split(" ")
                                 logging.info(" ".join(cmd))
@@ -80,7 +78,7 @@ class Server(Thread):
                                 elif cmd[0] == "AUTH":
                                     self.auth(client, cmd)
                                 elif cmd[0] == "QUIT":
-                                    self.kick(client, "You are deconnected !")
+                                    self.kick(client, "You have been disconnected !")
 
                                 if self.clients[socket]["authentificated"]:
                                     if cmd[0] == "OPEN":
@@ -88,13 +86,17 @@ class Server(Thread):
                                     if self.clients[socket]["files"]:
                                         if cmd[0] == "WRITE":
                                             self.write(client, cmd)
-
                                         if cmd[0] == "SEND":
                                             # SEND <file> <len>
                                             # socket.recv(len).decode()
                                             pass
                                 else:
                                     client.send("ERROR AUTH: You are not authentificated".encode())
+
+                        except (ConnectionAbortedError, OSError):
+                            pass
+                        except KeyError:
+                            pass
 
                 # Ping check
                 timeNow = time.time()
@@ -162,10 +164,10 @@ class Server(Thread):
             else:
                 if not self.clients[sender]["authentificated"]:
                     self.clients[sender]["authentificated"] = True
-                    logging.info("Successful Authentication for %s" % cmd[1])
+                    logging.info("Successful Authentication for %s" % (cmd[1]))
                     sender.send("OK AUTH: Successful Authentication".encode("UTF-8"))
                 else:
-                    logging.warning("Authentication Failed for %s (Already Authentificated)" % cmd[1])
+                    logging.warning("Authentication Failed for %s (Already Authentificated)" % (cmd[1]))
                     sender.send("Authentication Failed ! (Already Authentificated)".encode("UTF-8"))
 
     def open(self, sender, cmd):
@@ -341,7 +343,7 @@ def main():
             print(server.usersMapping())
         elif msg == "files":
             print(server.filesMapping())
-        else
+        else:
             exec(msg)
 
 if __name__ == '__main__':

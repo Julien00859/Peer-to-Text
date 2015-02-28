@@ -229,7 +229,7 @@ class Server(Thread):
             logging.warning("%s miss taping command %s: %s" % (self.clients[sender]["IP"], cmd[0], " ".join(cmd)))
             sender.send("ERROR WRITE command: WRITE <file> <index> <message>".encode())
 
-    def kick(self, socket, msg="Kicked", file=None):
+    def kick(self, socket, msg = "Kicked", file = None):
         """
         Permet de fermer la connexion avec le socket donné et de le supprimer de la mapping clients
 
@@ -286,7 +286,7 @@ class Server(Thread):
         del tempClientsList
         self.run = False
 
-    def usersMapping(self, socket=None):
+    def usersMapping(self, socket = None):
         """
         Simple méthode qui affiche toute la mapping d'un client donné ou tout le monde si personne n'a été donné
 
@@ -311,7 +311,7 @@ class Server(Thread):
         else:
             return self.clients[socket]
 
-    def filesMapping(self, file=None):
+    def filesMapping(self, file = None):
         """
         Simple méthode qui retourne la mapping files entière ou simplement pour le fichier donné
 
@@ -329,7 +329,7 @@ class Server(Thread):
             return self.files[file]
 
 def main():
-    server = Server(1234, "localhost")
+    server = Server(1234)
     server.start()
 
     while True:
@@ -341,6 +341,8 @@ def main():
             print(server.usersMapping())
         elif msg == "files":
             print(server.filesMapping())
+        else
+            exec(msg)
 
 if __name__ == '__main__':
     main()

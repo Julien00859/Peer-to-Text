@@ -7,7 +7,7 @@ from getpass import getpass
 from hashlib import sha1
 
 class server(Thread):
-	def __init__(self, host, port=1234):
+	def __init__(self, host, port = 1234):
 		"""
 		"""
 
@@ -38,12 +38,17 @@ class server(Thread):
 	def stop(self):
         """
         """
+
 		self.send("QUIT")
-		self.running = False
+        reply = self.server.recv(1024)
+        if reply:
+            print(reply)
+            self.running = False
 
 	def send(self, cmd):
         """
         """
+
 		self.server.send(cmd.encode("UTF-8"))
 
 with open("config.json") as json_data:

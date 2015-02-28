@@ -9,12 +9,12 @@
 * Un serveur unique sur nos machines qui s'occupera d'authentifier les clients, de donner un accès FTP à son espace de travail et de gérer les permissions de chaque fichier
 * Des clients pouvant gérer un session de live-coding comme décris par notre protocol.
 
-## Les développeurs  ##
-
-* Julien CASTIAUX (Julien008)
-* Norman FELTZ (normanfeltz)
-
 ## Création des plugins ##
 
 * Sous Sublime Text (En Python) : [http://www.sublimetext.com/docs/plugin-basics](http://www.sublimetext.com/docs/plugin-basics)
 * Sous Notepad ++ (En C++) : [http://notepad-plus-plus.org/fr/contribute/plugin-howto.html](http://notepad-plus-plus.org/fr/contribute/plugin-howto.html)
+
+## Les développeurs  ##
+
+* Julien CASTIAUX (Julien008)
+* Norman FELTZ (normanfeltz)

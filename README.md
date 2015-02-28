@@ -10,17 +10,5 @@ Les deux fichiers sont écris en Python, le langage que je domine le mieux pour 
 
 ## Les membres le protocole ##
 
-Julien CASTIAUX (Julien008) - Développeur
-
-* Skype : julien8593
-* E-Mail : ?
-
-Norman FELTZ (normanfeltz) - Développeur
-
-* Skype : norman.feltz
-* E-Mail : norman.feltz@hotmail.fr
-
-Emilien Devos (unixfox) - Administrateur Systèmes
-
-* Skype : kif4444
-* E-Mail : ?
+* Julien CASTIAUX (Julien008) - Développeur
+* Norman FELTZ (normanfeltz) - Développeur

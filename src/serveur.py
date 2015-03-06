@@ -46,28 +46,27 @@ class Server(Thread):
         self.clients = {}
         self.files = {}
 
-        # Boucle principale, les grosses méthode seront dans des fonctions afin d'y apporter une docstring approprié
-        while self.run: 
+        try:
+            # Boucle principale, les grosses méthode seront dans des fonctions afin d'y apporter une docstring approprié
+            while self.run: 
+                # Acceptation des nouveaux clients
+                newClients, wlist, xlist = select.select([self.server], [], [], 0.1)
+                for client in newClients:
+                    socket, adress = self.server.accept()
+                    self.clients[socket] = {}
+                    self.clients[socket]["ping"] = self.ping(socket)
+                    self.clients[socket]["username"] = ""
+                    self.clients[socket]["email"] = ""
+                    self.clients[socket]["authentificated"] = False
+                    self.clients[socket]["IP"] = adress[0]
+                    self.clients[socket]["files"] = []
 
-            # Acceptation des nouveaux clients
-            newClients, wlist, xlist = select.select([self.server], [], [], 0.1)
-            for client in newClients:
-                socket, adress = self.server.accept()
-                self.clients[socket] = {}
-                self.clients[socket]["ping"] = self.ping(socket)
-                self.clients[socket]["username"] = ""
-                self.clients[socket]["email"] = ""
-                self.clients[socket]["authentificated"] = False
-                self.clients[socket]["IP"] = adress[0]
-                self.clients[socket]["files"] = []
-
-            # Écoute les clients ayant qqch à dire
-            if len(self.clients.keys()) > 0:
-                newMessages, wlist, xlist = select.select(self.clients.keys(), [], [], 0.5)
-                if len(newMessages) > 0:
-                    for client in newMessages:
-                        logging.debug(client)
-                        try:
+                # Écoute les clients ayant qqch à dire
+                if len(self.clients.keys()) > 0:
+                    newMessages, wlist, xlist = select.select(self.clients.keys(), [], [], 0.5)
+                    if len(newMessages) > 0:
+                        for client in newMessages:
+                            logging.debug(client)
                             msg = client.recv(1024).decode("UTF-8")
                             for line in msg.split("\r\n"):
                                 cmd = line.split(" ")
@@ -93,29 +92,27 @@ class Server(Thread):
                                 else:
                                     client.send("ERROR AUTH: You are not authentificated".encode())
 
-                        except (ConnectionAbortedError, OSError):
-                            pass
-                        except KeyError:
-                            pass
+                    # Ping check
+                    timeNow = time.time()
+                    tempClientsList = []
+                    for client in self.clients.keys():
+                        tempClientsList.append(client)
 
-                # Ping check
-                timeNow = time.time()
-                tempClientsList = []
-                for client in self.clients.keys():
-                    tempClientsList.append(client)
-
-                for client in tempClientsList:
-                    if self.clients[client]["ping"][0] != -1:
-                        if timeNow - self.clients[client]["ping"][1] > 30:
-                            kick(client, "Ping Timeout")
-                    else:
-                        if timeNow - self.clients[client]["ping"][1] > 30:
-                            try:
-                                self.clients[client]["ping"] = self.ping(client)
-                            except ConnectionResetError:
-                                self.kick(socket, "Ping Timeout")
-                del tempClientsList
-
+                    for client in tempClientsList:
+                        if self.clients[client]["ping"][0] != -1:
+                            if timeNow - self.clients[client]["ping"][1] > 30:
+                                kick(client, "Ping Timeout")
+                        else:
+                            if timeNow - self.clients[client]["ping"][1] > 30:
+                                try:
+                                    self.clients[client]["ping"] = self.ping(client)
+                                except ConnectionResetError:
+                                    self.kick(socket, "Ping Timeout")
+                    del tempClientsList
+        except (ConnectionAbortedError, OSError):
+            pass
+        except KeyError:
+            pass
     def pong(self, sender, cmd):
         """
         Commande PONG met la valeur PingRND sur -1 et le PingTime sur l'heure actuelle
@@ -131,7 +128,7 @@ class Server(Thread):
         """
 
         try:
-            assert self.clients[sender]["ping"][0] == int(cmd[1])
+            self.clients[sender]["ping"][0] == int(cmd[1])
         except (AssertionError, IndexError, ValueError, TypeError):
             self.kick(sender, "Pong Failed")
         else:
@@ -333,18 +330,17 @@ class Server(Thread):
 def main():
     server = Server(1234)
     server.start()
-
-    while True:
-        msg = input()
-        if msg == "stop":
-            server.stop()
-            break
-        elif msg == "users":
-            print(server.usersMapping())
-        elif msg == "files":
-            print(server.filesMapping())
-        else:
-            exec(msg)
+    try:
+        while True:
+            msg = input()
+            if msg == "users":
+                print(server.usersMapping())
+            elif msg == "files":
+                print(server.filesMapping())
+            else:
+                exec(msg)
+    except KeyboardInterrupt:
+        server.stop()
 
 if __name__ == '__main__':
     main()

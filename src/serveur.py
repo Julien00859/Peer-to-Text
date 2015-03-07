@@ -65,12 +65,12 @@ class Server(Thread):
                 newMessages, wlist, xlist = select.select(self.clients.keys(), [], [], 0.5)
                 if len(newMessages) > 0:
                     for client in newMessages:
-						try:
+                        try:
                             msg = client.recv(1024).decode("UTF-8")
-						except (OSError, ConnectionAbortedError):
-							# Le client s'est deconnecté ou un problème est arrivé. On le kick
-							kick(client)
-						else:
+                        except (OSError, ConnectionAbortedError):
+                            # Le client s'est deconnecté ou un problème est arrivé. On le kick
+                            kick(client)
+                        else:
                             for line in msg.split("\r\n"):
                                 cmd = line.split(" ")
                                 logging.info(" ".join(cmd))
@@ -92,10 +92,10 @@ class Server(Thread):
                                             # SEND <file> <len>
                                             # socket.recv(len).decode()
                                             pass
-								elif cmd[0] == "OPEN" or cmd[0] == "WRITE" or cmd[0] == "SEND":
-									self.clients[client].send(("ERROR %s: You must be authentificated to use this command" % cmd[0]).encode())
-								else:
-									self.clients[client].send(("ERROR %s: Unknown command." % cmd[0]).encode())
+                                elif cmd[0] == "OPEN" or cmd[0] == "WRITE" or cmd[0] == "SEND":
+                                    self.clients[client].send(("ERROR %s: You must be authentificated to use this command" % cmd[0]).encode())
+                                else:
+                                    self.clients[client].send(("ERROR %s: Unknown command." % cmd[0]).encode())
             # Ping check
             timeNow = time.time()
             tempClientsList = []
@@ -244,13 +244,13 @@ class Server(Thread):
 
         if file:
             logging.warning("Kicking %s from %s for %s !" % (self.clients[socket]["IP"], file, msg))
-			try:
-				socket.send(("KICKED %s %s" % (file, msg)).encode("UTF-8"))
+            try:
+                socket.send(("KICKED %s %s" % (file, msg)).encode("UTF-8"))
             self.files[file].remove(socket)
         else:
             logging.warning("Kicking %s for %s !" % (self.clients[socket]["IP"], msg))
-			try:
-				socket.send(("KICKED %s" % msg).encode("UTF-8"))
+            try:
+                socket.send(("KICKED %s" % msg).encode("UTF-8"))
             for file in self.clients[socket]["files"]:
                 self.files[file].remove(socket)
             del self.clients[socket]

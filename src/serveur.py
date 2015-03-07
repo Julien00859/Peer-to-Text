@@ -46,28 +46,31 @@ class Server(Thread):
         self.clients = {}
         self.files = {}
 
-        try:
-            # Boucle principale, les grosses méthode seront dans des fonctions afin d'y apporter une docstring approprié
-            while self.run: 
-                # Acceptation des nouveaux clients
-                newClients, wlist, xlist = select.select([self.server], [], [], 0.1)
-                for client in newClients:
-                    socket, adress = self.server.accept()
-                    self.clients[socket] = {}
-                    self.clients[socket]["ping"] = self.ping(socket)
-                    self.clients[socket]["username"] = ""
-                    self.clients[socket]["email"] = ""
-                    self.clients[socket]["authentificated"] = False
-                    self.clients[socket]["IP"] = adress[0]
-                    self.clients[socket]["files"] = []
+        # Boucle principale, les grosses méthode seront dans des fonctions afin d'y apporter une docstring approprié
+        while self.run: 
+            # Acceptation des nouveaux clients
+            newClients, wlist, xlist = select.select([self.server], [], [], 0.1)
+            for client in newClients:
+                socket, adress = self.server.accept()
+                self.clients[socket] = {}
+                self.clients[socket]["ping"] = self.ping(socket)
+                self.clients[socket]["username"] = ""
+                self.clients[socket]["email"] = ""
+                self.clients[socket]["authentificated"] = False
+                self.clients[socket]["IP"] = adress[0]
+                self.clients[socket]["files"] = []
 
-                # Écoute les clients ayant qqch à dire
-                if len(self.clients.keys()) > 0:
-                    newMessages, wlist, xlist = select.select(self.clients.keys(), [], [], 0.5)
-                    if len(newMessages) > 0:
-                        for client in newMessages:
-                            logging.debug(client)
+            # Écoute les clients ayant qqch à dire
+            if len(self.clients.keys()) > 0:
+                newMessages, wlist, xlist = select.select(self.clients.keys(), [], [], 0.5)
+                if len(newMessages) > 0:
+                    for client in newMessages:
+						try:
                             msg = client.recv(1024).decode("UTF-8")
+						except (OSError, ConnectionAbortedError):
+							# Le client s'est deconnecté ou un problème est arrivé. On le kick
+							kick(client)
+						else:
                             for line in msg.split("\r\n"):
                                 cmd = line.split(" ")
                                 logging.info(" ".join(cmd))
@@ -79,7 +82,7 @@ class Server(Thread):
                                 elif cmd[0] == "QUIT":
                                     self.kick(client, "You have been disconnected !")
 
-                                if self.clients[socket]["authentificated"]:
+                                elif self.clients[socket]["authentificated"]:
                                     if cmd[0] == "OPEN":
                                         self.open(client, cmd)
                                     if self.clients[socket]["files"]:
@@ -89,30 +92,27 @@ class Server(Thread):
                                             # SEND <file> <len>
                                             # socket.recv(len).decode()
                                             pass
-                                else:
-                                    client.send("ERROR AUTH: You are not authentificated".encode())
+								elif cmd[0] == "OPEN" or cmd[0] == "WRITE" or cmd[0] == "SEND":
+									self.clients[client].send(("ERROR %s: You must be authentificated to use this command" % cmd[0]).encode())
+								else:
+									self.clients[client].send(("ERROR %s: Unknown command." % cmd[0]).encode())
+            # Ping check
+            timeNow = time.time()
+            tempClientsList = []
+            for client in self.clients.keys():
+                tempClientsList.append(client)
 
-                    # Ping check
-                    timeNow = time.time()
-                    tempClientsList = []
-                    for client in self.clients.keys():
-                        tempClientsList.append(client)
-
-                    for client in tempClientsList:
-                        if self.clients[client]["ping"][0] != -1:
-                            if timeNow - self.clients[client]["ping"][1] > 30:
-                                kick(client, "Ping Timeout")
-                        else:
-                            if timeNow - self.clients[client]["ping"][1] > 30:
-                                try:
-                                    self.clients[client]["ping"] = self.ping(client)
-                                except ConnectionResetError:
-                                    self.kick(socket, "Ping Timeout")
-                    del tempClientsList
-        except (ConnectionAbortedError, OSError):
-            pass
-        except KeyError:
-            pass
+            for client in tempClientsList:
+                if self.clients[client]["ping"][0] != -1:
+                    if timeNow - self.clients[client]["ping"][1] > 30:
+                        kick(client, "Ping Timeout")
+                else:
+                    if timeNow - self.clients[client]["ping"][1] > 30:
+                        try:
+                            self.clients[client]["ping"] = self.ping(client)
+                        except ConnectionResetError:
+                            self.kick(socket, "Ping Timeout")
+            del tempClientsList
     def pong(self, sender, cmd):
         """
         Commande PONG met la valeur PingRND sur -1 et le PingTime sur l'heure actuelle
@@ -128,7 +128,7 @@ class Server(Thread):
         """
 
         try:
-            self.clients[sender]["ping"][0] == int(cmd[1])
+            assert self.clients[sender]["ping"][0] == int(cmd[1])
         except (AssertionError, IndexError, ValueError, TypeError):
             self.kick(sender, "Pong Failed")
         else:
@@ -244,11 +244,13 @@ class Server(Thread):
 
         if file:
             logging.warning("Kicking %s from %s for %s !" % (self.clients[socket]["IP"], file, msg))
-            socket.send(("KICKED %s %s" % (file, msg)).encode("UTF-8"))
+			try:
+				socket.send(("KICKED %s %s" % (file, msg)).encode("UTF-8"))
             self.files[file].remove(socket)
         else:
             logging.warning("Kicking %s for %s !" % (self.clients[socket]["IP"], msg))
-            socket.send(("KICKED %s" % msg).encode("UTF-8"))
+			try:
+				socket.send(("KICKED %s" % msg).encode("UTF-8"))
             for file in self.clients[socket]["files"]:
                 self.files[file].remove(socket)
             del self.clients[socket]

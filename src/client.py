@@ -5,6 +5,7 @@ from hashlib import sha1
 from threading import Thread
 from getpass import getpass
 from time import sleep
+import tkinther as tk
 
 class Client(Thread):
     def __init__(self, host, port = 1234):
@@ -30,6 +31,8 @@ class Client(Thread):
                             self.client.send(("PONG %i" % int(cmd[1])).encode("UTF-8"))
                         elif cmd[0] == "KICKED":
                             self.running = False
+                        elif cmd[0] == "WRITE":
+                        	
         except (ConnectionAbortedError, OSError):
             print("Connexion au serveur perdu")
             self.running = False
@@ -44,9 +47,27 @@ class Client(Thread):
     def send(self, cmd):
         self.client.send(cmd.encode("UTF-8"))
 
+def IG(Thread):
+	def __init__(self, socket, file):
+		self.client = socket
+		self.file = file
+		root = tk.Tk()
+		self.textfield = tk.Text(root)
+		self.textfield.bind("<Key>", write)
+		Thread.__init__(self)
+
+	def write(event):
+		self.client.send(("WRITE %s %s %s" % (self.file, textfield.index(tk.CURRENT), event.char)).encode())
+
+	def run():
+		self.textfield.pack()
+
+
 def main():
     client = Client("localhost", 1234)
     client.start()
+    ig = IG(client)
+    ig.start()
 
     try:
         while True:

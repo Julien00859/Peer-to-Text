@@ -56,12 +56,11 @@ def IG(Thread):
 		self.textfield.bind("<Key>", write)
 		Thread.__init__(self)
 
-	def write(event):
-		self.client.send(("WRITE %s %s %s" % (self.file, textfield.index(tk.CURRENT), event.char)).encode())
-
 	def run():
 		self.textfield.pack()
 
+    def write(event):
+        self.client.send(("WRITE %s %s %s" % (self.file, textfield.index(tk.CURRENT), event.char)).encode())
 
 def main():
     client = Client("localhost", 12345)

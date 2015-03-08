@@ -10,7 +10,7 @@ from random import randrange
 logging.getLogger().setLevel(logging.INFO)
 
 class Server(Thread):
-    def __init__(self, port, host = "0.0.0.0", listen = 5):
+    def __init__(self, host = "0.0.0.0", port = 12345, listen = 5):
         """
         Initiation du serveur, mise en écoute sur l'host et le port.
 
@@ -113,6 +113,7 @@ class Server(Thread):
                         except ConnectionResetError:
                             self.kick(socket, "Ping Timeout")
             del tempClientsList
+
     def pong(self, sender, cmd):
         """
         Commande PONG met la valeur PingRND sur -1 et le PingTime sur l'heure actuelle
@@ -330,7 +331,7 @@ class Server(Thread):
             return self.files[file]
 
 def main():
-    server = Server(1234)
+    server = Server()
     server.start()
     try:
         while True:

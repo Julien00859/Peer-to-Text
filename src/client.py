@@ -64,7 +64,7 @@ def IG(Thread):
 
 
 def main():
-    client = Client("localhost", 1234)
+    client = Client("localhost", 12345)
     client.start()
     ig = IG(client)
     ig.start()

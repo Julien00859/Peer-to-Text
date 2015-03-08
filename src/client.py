@@ -45,7 +45,7 @@ class Client(Thread):
         self.client.send(cmd.encode("UTF-8"))
 
 def main():
-    client = Client("localhost", 1234)
+    client = Client("localhost", 12345)
     client.start()
 
     try:

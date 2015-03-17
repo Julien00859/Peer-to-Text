@@ -245,13 +245,11 @@ class Server(Thread):
 
         if file:
             logging.warning("Kicking %s from %s for %s !" % (self.clients[socket]["IP"], file, msg))
-            try:
-                socket.send(("KICKED %s %s" % (file, msg)).encode("UTF-8"))
+            socket.send(("KICKED %s %s" % (file, msg)).encode("UTF-8"))
             self.files[file].remove(socket)
         else:
             logging.warning("Kicking %s for %s !" % (self.clients[socket]["IP"], msg))
-            try:
-                socket.send(("KICKED %s" % msg).encode("UTF-8"))
+            socket.send(("KICKED %s" % msg).encode("UTF-8"))
             for file in self.clients[socket]["files"]:
                 self.files[file].remove(socket)
             del self.clients[socket]

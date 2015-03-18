@@ -10,7 +10,7 @@ from random import randrange
 logging.getLogger().setLevel(logging.INFO)
 
 class Server(Thread):
-    def __init__(self, host = "0.0.0.0", port = 12345, listen = 5):
+    def __init__(self, host = json.load(open("config.json","r"))["server"]["host"], port = int(json.load(open("config.json","r"))["server"]["port"]), listen = 5):
         """
         Initiation du serveur, mise en écoute sur l'host et le port.
 
@@ -69,33 +69,34 @@ class Server(Thread):
                             msg = client.recv(1024).decode("UTF-8")
                         except (OSError, ConnectionAbortedError):
                             # Le client s'est deconnecté ou un problème est arrivé. On le kick
-                            kick(client)
+                            self.kick(client)
                         else:
                             for line in msg.split("\r\n"):
-                                cmd = line.split(" ")
-                                logging.info(" ".join(cmd))
+                                if line != "":
+                                    cmd = line.split(" ")
+                                    logging.info(" ".join(cmd))
 
-                                if cmd[0] == "PONG":
-                                    self.pong(client, cmd)
-                                elif cmd[0] == "AUTH":
-                                    self.auth(client, cmd)
-                                elif cmd[0] == "QUIT":
-                                    self.kick(client, "You have been disconnected !")
+                                    if cmd[0] == "PONG":
+                                        self.pong(client, cmd)
+                                    elif cmd[0] == "AUTH":
+                                        self.auth(client, cmd)
+                                    elif cmd[0] == "QUIT":
+                                        self.kick(client, "You have been disconnected !")
 
-                                elif self.clients[socket]["authentificated"]:
-                                    if cmd[0] == "OPEN":
-                                        self.open(client, cmd)
-                                    if self.clients[socket]["files"]:
-                                        if cmd[0] == "WRITE":
-                                            self.write(client, cmd)
-                                        if cmd[0] == "SEND":
-                                            # SEND <file> <len>
-                                            # socket.recv(len).decode()
-                                            pass
-                                elif cmd[0] == "OPEN" or cmd[0] == "WRITE" or cmd[0] == "SEND":
-                                    self.clients[client].send(("ERROR %s: You must be authentificated to use this command" % cmd[0]).encode())
-                                else:
-                                    self.clients[client].send(("ERROR %s: Unknown command." % cmd[0]).encode())
+                                    elif list(self.clients.keys()).count(socket) and self.clients[socket]["authentificated"]:
+                                        if cmd[0] == "OPEN":
+                                            self.open(client, cmd)
+                                        if self.clients[socket]["files"]:
+                                            if cmd[0] == "WRITE":
+                                                self.write(client, cmd)
+                                            if cmd[0] == "SEND":
+                                                # SEND <file> <len>
+                                                # socket.recv(len).decode()
+                                                pass
+                                    elif cmd[0] == "OPEN" or cmd[0] == "WRITE" or cmd[0] == "SEND":
+                                        client.send(("ERROR %s: You must be authentificated to use this command" % cmd[0]).encode())
+                                    else:
+                                        client.send(("ERROR %s: Unknown command." % cmd[0]).encode())
             # Ping check
             timeNow = time.time()
             tempClientsList = []
@@ -105,13 +106,13 @@ class Server(Thread):
             for client in tempClientsList:
                 if self.clients[client]["ping"][0] != -1:
                     if timeNow - self.clients[client]["ping"][1] > 30:
-                        kick(client, "Ping Timeout")
+                        self.kick(client, "Ping Timeout")
                 else:
                     if timeNow - self.clients[client]["ping"][1] > 30:
                         try:
                             self.clients[client]["ping"] = self.ping(client)
                         except ConnectionResetError:
-                            self.kick(socket, "Ping Timeout")
+                            self.kick(socket, "Ping Error")
             del tempClientsList
 
     def pong(self, sender, cmd):
@@ -149,7 +150,7 @@ class Server(Thread):
         # Utilisation temporaire d'un fichier
         with open("config.json") as json_data:
             try:
-                assert sha1(json.load(json_data)["users"][cmd[1]]["password"].encode()).hexdigest() == cmd[2]
+                assert json.load(json_data)["users"][cmd[1]]["password"] == cmd[2]
             except AssertionError:
                 logging.warning("Authentication Failed for %s (Wrong Password)" % cmd[1])
                 sender.send("ERROR AUTH: Incorrect password".encode())
@@ -160,13 +161,9 @@ class Server(Thread):
                 logging.warning("%s miss taping command %s: %s" % (self.clients[sender]["IP"], cmd[0], " ".join(cmd)))
                 sender.send("ERROR AUTH: OPEN <file>".encode())
             else:
-                if not self.clients[sender]["authentificated"]:
-                    self.clients[sender]["authentificated"] = True
-                    logging.info("Successful Authentication for %s" % (cmd[1]))
-                    sender.send("OK AUTH: Successful Authentication".encode("UTF-8"))
-                else:
-                    logging.warning("Authentication Failed for %s (Already Authentificated)" % (cmd[1]))
-                    sender.send("Authentication Failed ! (Already Authentificated)".encode("UTF-8"))
+                self.clients[sender]["authentificated"] = True
+                logging.info("Successful Authentication for %s" % (cmd[1]))
+                sender.send("OK AUTH: Successful Authentication".encode("UTF-8"))
 
     def open(self, sender, cmd):
         """
@@ -183,23 +180,28 @@ class Server(Thread):
         """
 
         try:
+            self.clients[sender]["files"].append(cmd[1])
             self.files[cmd[1]]["users"].append(sender)
+            with open(cmd[1], "r") as file:
+                content = file.read()
+                sender.send(("SEND %s %i" % (cmd[1], len(content.encode("UTF-8")))).encode())
+                sender.send(content.encode("UTF-8"))
+            if self.files[cmd[1]]["changes"]:
+                for change in self.files[cmd[1]]["changes"]:
+                    sender.send(("WRITE %s" % change).encode("UTF-8"))
         except KeyError:
+            self.files[cmd[1]] = {"users":[sender],"changes":[]}
             try:
                 with open(cmd[1], "r") as file:
                     content = file.read()
                     sender.send(("SEND %s %i" % (cmd[1], len(content.encode("UTF-8")))).encode())
                     sender.send(content.encode("UTF-8"))
-                    for change in self.files[cmd[1]]["changes"]:
-                        sender.send(("WRITE %s" % change).encode("UTF-8"))
                 logging.info("New file opened: %s" % cmd[1])
             except FileNotFoundError:
                 with open(cmd[1], "w") as file:
-                    self.files[cmd[1]] = {"users":[sender],"changes":[]}
+                    pass
                 sender.send(("SEND %s 0" % cmd[1]).encode())
-            finally:
-                self.files[cmd[1]] = {"users":[sender],"changes":[]}
-                self.clients[sender]["files"].append(cmd[1])
+
         except IndexError:
             logging.warning("%s miss taping command %s: %s" % (self.clients[sender]["IP"], cmd[0], " ".join(cmd)))
             sender.send("ERROR OPEN command: OPEN <file>".encode())
@@ -214,14 +216,20 @@ class Server(Thread):
         :type cmd: dict
         :param cmd: Un dictionnaire contenant l'ensemble des mots de la commande. cmd[0] la commande WRITE. cmd[1] le fichier sur lequel écrire. cmd[2] l'index (de type tkinter.Text().index()). cmd[3] le message à écrire.
         """
-
+        
+        #Si la longueur = 5 et que cmd[3] && cmd[4] sont vide c'est que c'est un espace ninja qui s'est glissé
+        print(cmd)
+        if len(cmd) == 5:
+            if cmd[3] == "" and cmd[4] == "":
+                cmd[3] = " "
+                del cmd[4]
         try:
             if self.files[cmd[1]]["users"].count(sender):
-                for client in self.file[cmd[1]]["users"]:
+                for client in self.files[cmd[1]]["users"]:
                     if client != sender:
                         logging.debug("%s: %s" % (self.clients[sender]["IP"], " ".join(cmd)))
-                        self.files[cmd[1]]["changes"].append([x for x in cmd if x >= 2])
-                        client.send(cmd.encode())
+                        self.files[cmd[1]]["changes"].append("%s %s" % (cmd[2], cmd[3]))
+                        client.send(" ".join(cmd).encode())
             else:
                 logging.warning("%s tried to write on %s" % (self.clients[sender]["IP"], cmd[1]))
                 sender.send("ERROR WRITE: File must be opened first".encode())
@@ -247,13 +255,17 @@ class Server(Thread):
             logging.warning("Kicking %s from %s for %s !" % (self.clients[socket]["IP"], file, msg))
             try:
                 socket.send(("KICKED %s %s" % (file, msg)).encode("UTF-8"))
-            self.files[file].remove(socket)
+            except:
+                pass
+            del self.files[file][socket]
         else:
             logging.warning("Kicking %s for %s !" % (self.clients[socket]["IP"], msg))
             try:
                 socket.send(("KICKED %s" % msg).encode("UTF-8"))
+            except:
+                pass
             for file in self.clients[socket]["files"]:
-                self.files[file].remove(socket)
+                del self.files[file][socket]
             del self.clients[socket]
             socket.close()
 

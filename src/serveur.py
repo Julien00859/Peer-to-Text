@@ -7,7 +7,21 @@ from hashlib import sha1
 from threading import Thread
 from random import randrange
 
-logging.getLogger().setLevel(logging.INFO)
+# Création du "logger" root et définition du level à DEBUG
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
+
+# Création du Handler fichier avec sauvegarde log dans un fichier et définition du level à INFO
+file_handler = logging.FileHandler('serveur.log')
+file_handler.setLevel(logging.INFO)
+file_handler.setFormatter(logging.Formatter("%(asctime)s :: %(levelname)s :: %(message)s", "%d/%m/%Y %H:%M:%S"))
+logger.addHandler(file_handler)
+
+# Création du Handler steam (Console) et définition du level à DEBUG
+steam_handler = logging.StreamHandler()
+steam_handler.setFormatter(logging.Formatter("[%(asctime)s] [%(levelname)s] %(message)s", "%H:%M:%S"))
+steam_handler.setLevel(logging.DEBUG)
+logger.addHandler(steam_handler)
 
 class Server(Thread):
     def __init__(self, host = json.load(open("config.json","r"))["server"]["host"], port = int(json.load(open("config.json","r"))["server"]["port"]), listen = 5):

@@ -1,17 +1,7 @@
 {
-	"server":{
-		"host":"localhost",
-		"port":"12345"
-	},
-	"mysql":{
-		"host":"localhost",
-		"port":"6060",
-		"password":"password"
-	},
-	"users":{
-		"Mabite@gmail.com":{
-			"password":"5baa61e4c9b93f3f0682250b6cf8331b7ee68fd8",
-			"pseudo":"Miam"
-		}
-	}
+	"host":"localhost",
+	"port":3307,
+	"user":"peer-to-text",
+	"password":"DRrG5aTAjsZlMVkmMIVo",
+	"database":"peer-to-text"
 }

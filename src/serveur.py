@@ -6,6 +6,7 @@ import logging
 from hashlib import sha1
 from threading import Thread
 from random import randrange
+import mysql.connector
 
 # Création du "logger" root et définition du level à DEBUG
 logger = logging.getLogger()
@@ -23,8 +24,13 @@ steam_handler.setFormatter(logging.Formatter("[%(asctime)s] [%(levelname)s] %(me
 steam_handler.setLevel(logging.DEBUG)
 logger.addHandler(steam_handler)
 
+# Lecture de la config MySQL et Initialisation de la connection à MySQL
+with open("config.json") as json_data:
+    json_data = json.load(json_data)
+    sql = mysql.connector.connect(host=json_data["host"], port=json_data["port"], user=json_data["user"], password=json_data["password"], database=json_data["database"])
+
 class Server(Thread):
-    def __init__(self, host = json.load(open("config.json","r"))["server"]["host"], port = int(json.load(open("config.json","r"))["server"]["port"]), listen = 5):
+    def __init__(self, host = "0.0.0.0", port = 12345, listen = 5):
         """
         Initiation du serveur, mise en écoute sur l'host et le port.
 
@@ -160,24 +166,28 @@ class Server(Thread):
         :type cmd: dict
         :param cmd: Un dictionnaire contenant l'ensemble des mots de la commande. cmd[0] la commande AUTH. cmd[1] l'email de l'utilisateur. cmd[2] le mot de passe hashé en SHA1 de cet utilisateur.
         """
+        cursor = sql.cursor()
+        cursor.execute("SELECT username, password, ip, groups FROM users WHERE email = %s", (cmd[1], ))
+        result  = cursor.fetchall()
 
-        # Utilisation temporaire d'un fichier
-        with open("config.json") as json_data:
-            try:
-                assert json.load(json_data)["users"][cmd[1]]["password"] == cmd[2]
-            except AssertionError:
+        if len(result) == 1:
+            if cmd[2] == result[0][1]:
+                self.clients[sender]["username"] == result[0][0]
+                self.clients[sender]["authentificated"] = True
+
+                logging.info("Successful Authentication for %s" % cmd[1])
+                sender.send("OK AUTH: Successful Authentication".encode("UTF-8"))
+
+                cursor2 = sql.cursor()
+                cursor2.execute("UPDATE users SET ip = %s WHERE email = %s", (self.clients[sender]["IP"], cmd[1]))
+                cursor2.close()
+            else:
                 logging.warning("Authentication Failed for %s (Wrong Password)" % cmd[1])
                 sender.send("ERROR AUTH: Incorrect password".encode())
-            except KeyError:
-                logging.warning("Authentication Failed for %s (Incorrect mail adress)" % cmd[1])
-                sender.send("ERROR AUTH: Incorrect mail adress".encode())
-            except IndexError:
-                logging.warning("%s miss taping command %s: %s" % (self.clients[sender]["IP"], cmd[0], " ".join(cmd)))
-                sender.send("ERROR AUTH: OPEN <file>".encode())
-            else:
-                self.clients[sender]["authentificated"] = True
-                logging.info("Successful Authentication for %s" % (cmd[1]))
-                sender.send("OK AUTH: Successful Authentication".encode("UTF-8"))
+        else:
+            logging.warning("Authentication Failed for %s (Incorrect mail adress)" % cmd[1])
+            sender.send("ERROR AUTH: Incorrect mail adress".encode())
+        cursor.close()
 
     def open(self, sender, cmd):
         """

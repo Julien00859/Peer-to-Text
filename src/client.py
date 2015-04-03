@@ -1,6 +1,5 @@
 import select
 import socket
-import json
 from hashlib import sha1
 from threading import Thread
 from getpass import getpass
@@ -39,6 +38,7 @@ class Client(Thread):
         except (ConnectionAbortedError, OSError):
             print("Connexion au serveur perdu")
             self.running = False
+            exit()
 
     def stop(self):
         self.send("QUIT")

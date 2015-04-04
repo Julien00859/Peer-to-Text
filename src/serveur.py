@@ -25,9 +25,10 @@ steam_handler.setLevel(logging.DEBUG)
 logger.addHandler(steam_handler)
 
 # Lecture de la config MySQL et Initialisation de la connection à MySQL
-with open("config.json") as json_data:
-    json_data = json.load(json_data)
-    sql = mysql.connector.connect(host=json_data["host"], port=json_data["port"], user=json_data["user"], password=json_data["password"], database=json_data["database"])
+json_file = open("config.json")
+json_data = json.load(json_file)
+json_file.closed
+sql = mysql.connector.connect(host=json_data["mysql"]["host"], port=json_data["mysql"]["port"], user=json_data["mysql"]["user"], password=json_data["mysql"]["password"], database=json_data["mysql"]["database"])
 
 class Server(Thread):
     def __init__(self, host = "0.0.0.0", port = 12345, listen = 5):
@@ -367,7 +368,7 @@ class Server(Thread):
             return self.files[file]
 
 def main():
-    server = Server()
+    server = Server(json_data["server"]["host"], json_data["server"]["port"])
     server.start()
     try:
         while True:

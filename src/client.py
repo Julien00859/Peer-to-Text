@@ -5,6 +5,7 @@ from threading import Thread
 from getpass import getpass
 from time import sleep
 import tkinter as tk
+import json
 
 class Client(Thread):
     def __init__(self, host, port, textfield, file = None):
@@ -82,7 +83,9 @@ if __name__ == '__main__':
     textfield.bind("<Key>", write)
     commandprompt = tk.Entry(root, width=105)
     commandprompt.bind("<Return>", sendcommandpromt)
-    client = Client("localhost", 12345, textfield)
+    with open("config.json") as json_data:
+        json_data = json.load(json_data)
+        client = Client(json_data["server"]["host"], json_data["server"]["port"], textfield)
     textfield.pack()
     commandprompt.pack()
     client.start()

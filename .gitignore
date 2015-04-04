@@ -1,6 +1,5 @@
 *.sublime-project
 *.sublime-workspace
-*.txt
-*.log
-*.json
-src/config.json
+test.txt
+server.log
+config.json

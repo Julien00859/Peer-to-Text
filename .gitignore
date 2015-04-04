@@ -3,3 +3,4 @@
 *.txt
 *.log
 *.json
+src/config.json

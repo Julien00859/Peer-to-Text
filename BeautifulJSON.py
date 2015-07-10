@@ -40,5 +40,4 @@ def BeautifulJSON(json):
         
         array[i] = l
         i += 1
-    json = "".join(array).replace("\n ","\n").replace("\t ","\t")
-    return json
+    return "".join(array).replace("\n ","\n").replace("\t ","\t")

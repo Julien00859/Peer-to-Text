@@ -26,7 +26,7 @@ class PrivateProfile(PublicProfile):
     def __init__(self, openfile=""):
         PublicProfile.__init__(self, None, None)
         if openfile != "":
-            self.load(file)
+            self.load(openfile)
 
     def new(self, pseudo="", mail="", statut="", contactes={}, blacklist=[], projets={}):
         self.pseudo = pseudo
@@ -59,6 +59,9 @@ class PrivateProfile(PublicProfile):
             self.uuid = data["uuid"]
             self.ips = data["ips"]
             self.projets = data["projets"]
+                        
+        if self.ips.count(self.getIP())==0:
+            self.ips.append(self.getIP())
 
     def addUser(self, SharableProfile):
         data = json.loads(Crypto().crypt(SharableProfile, "mega_secret_key"))

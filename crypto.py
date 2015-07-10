@@ -7,7 +7,7 @@ class Crypto:
 
     def tabgen(self):
         tab=list()
-        for i in range(11-10+128-32+265-162):
+        for i in range(128-32):
             tab.append([chr(i) for i in range(32,128)])
             for n in range(i):
                 tab[i].append(tab[i].pop(0))
@@ -44,5 +44,5 @@ if __name__ == '__main__':
             else:
                 print(secret)
     else:
-        print(str(sys.argv[0]) + " file key [[>|>>] outpout]")
+        print(str(sys.argv[0]) + " file key [>|>> outpout]")
             

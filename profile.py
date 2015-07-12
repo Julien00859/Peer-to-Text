@@ -9,20 +9,20 @@ import rsa
 from BeautifulJSON import BeautifulJSON
 
 class PublicProfile:
-    def __init__(self, uuid, ips, public_key):
-        self.uuid = uuid
-        self.ips = ips
-        self.public_key = public_key
-
     def __init__(self, SharableProfile):
         profile = json.dumps(Crypto().crypt(SharableProfile, "super_secret_key"))
         self.uuid = profile["uuid"]
         self.ips = profile["ips"]
         self.public_key = profile["public_key"]
 
+    def new(self, uuid, ips, public_key):
+        self.uuid = uuid
+        self.ips = ips
+        self.public_key = public_key
+
     def getSharableProfile(self):
         #Ce n'est pas utile de crypter l'info, c'est juste pour avoir un string qui ne dise rien à un utilisateur lambda
-        return Crypto().crypt(self.JSON(), "super_secret_key")
+        return Crypto().crypt(json.dumps({"uuid":self.uuid, "ips":self.ips, "public_key":self.public_key}), "super_secret_key")
 
     def getPublicKey(self):
         n, e = self.public_key[public_str.find("(")+1:public_str.find(")")].split(", ")
@@ -39,7 +39,7 @@ class PublicProfile:
 
 class PrivateProfile(PublicProfile):
     def __init__(self, openfile=""):
-        PublicProfile.__init__(self, None, None, None)
+        PublicProfile.new(self, None, None, None)
         if openfile != "":
             self.load(openfile)
 
@@ -57,7 +57,7 @@ class PrivateProfile(PublicProfile):
 
     def newUUID(self):
         self.uuid = str(uuid4())
-        self.save
+        self.save()
 
     def newRASKey(self):
         public_key, private_key = rsa.newkeys(512)

@@ -1,10 +1,15 @@
 def BeautifulJSON(json):
-	#Just change {"Plouf" : {"Lol" : "MDR"}} to:
-	#{
-	#	"Plouf":{
-	#		"Lol":"MDR"
-	#	}
-	#}
+    #Convert {"message":"Hello, world ! :D","list":["Item1","Item2"]} to:
+    #
+    #{
+    #   "message":"Hello, world ! :D",
+    #   "list":[
+    #       "Item1",
+    #       "Item2"
+    #   ]
+    #}
+    #
+    
     array = list()
     for l in json:
         array.append(l)

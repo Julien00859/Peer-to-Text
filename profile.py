@@ -14,9 +14,15 @@ class PublicProfile:
         self.ips = ips
         self.public_key = public_key
 
+    def __init__(self, SharableProfile):
+        profile = json.dumps(Crypto().crypt(SharableProfile, "super_secret_key"))
+        self.uuid = profile["uuid"]
+        self.ips = profile["ips"]
+        self.public_key = profile["public_key"]
+
     def getSharableProfile(self):
         #Ce n'est pas utile de crypter l'info, c'est juste pour avoir un string qui ne dise rien à un utilisateur lambda
-        return Crypto().crypt(self.JSON(), "mega_secret_key")
+        return Crypto().crypt(self.JSON(), "super_secret_key")
 
     def getPublicKey(self):
         n, e = self.public_key[public_str.find("(")+1:public_str.find(")")].split(", ")
@@ -47,14 +53,17 @@ class PrivateProfile(PublicProfile):
         self.ips = [self.getIP()]
         self.newUUID()
         self.newRASKey()
+        self.save()
 
     def newUUID(self):
         self.uuid = str(uuid4())
+        self.save
 
     def newRASKey(self):
         public_key, private_key = rsa.newkeys(512)
         self.public_key = str(public_key)
         self.private_key = str(private_key)
+        self.save()
 
     def getIP(self):
         return bs(urlopen("http://whatismyip.org/"),"html.parser").span.getText()
@@ -79,14 +88,17 @@ class PrivateProfile(PublicProfile):
                         
         if self.ips.count(self.getIP())==0:
             self.ips.append(self.getIP())
+            self.save()
 
     def addUser(self, SharableProfile):
-        data = json.loads(Crypto().crypt(SharableProfile, "mega_secret_key"))
+        data = json.loads(Crypto().crypt(SharableProfile, "super_secret_key"))
         user = PublicProfile(uuid=data["uuid"],ips=data["ips"],public_key=data["public_key"])
         self.contactes[data["uuid"]] = user.array()
+        self.save()
 
     def delUser(self, uuid):
         del self.contactes[uuid]
+        self.save()
 
     def getPrivateKey(self):
         n, e, d, p, q = self.private_key[self.private_key.find("(")+1:self.private_key.find(")")].split(", ")

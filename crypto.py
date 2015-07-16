@@ -6,7 +6,7 @@ class Crypto:
         self.key = self.keygen(128)
 
     def tabgen(self):
-        tab=list()
+        tab = list()
         for i in range(128-32):
             tab.append([chr(i) for i in range(32,128)])
             for n in range(i):
@@ -14,13 +14,13 @@ class Crypto:
         return tab
     
     def keygen(self, length):
-        key=str()
+        key = str()
         for i in range(length):
             key+=self.tab[0][randint(32, 128-32-1)]
         return key
 
     def crypt(self, msg, key):
-        secret=str()
+        secret = str()
         for i in range(len(msg)):
             secret+=self.tab[0][self.tab[self.tab[0].index(msg[i])].index(key[i%len(key)])]
         return secret

@@ -111,9 +111,13 @@ class server(threading.Thread):
                                         if not self.clients[uuid]["socket"][client]["ProfileSent"]:
                                             client.send(json.dumps({"command":"profile","profile":self.moi.getSharableProfile()}).encode("UTF-8"))
                                             self.clients[uuid]["socket"][client]["ProfileSent"] = True
+
+                                            #Mise à jour du profil local
+                                            if self.clients[uuid]["profile"].pseudo != self.moi.contacte[uuid].pseudo:
+                                            	self.clients[uuid]["profile"].pseudo = self.moi.contacte[uuid].pseudo
                                             for ip in self.clients[uuid]["profile"].ips:
-                                                if not self.moi.ips.contains(ip):
-                                                    self.moi.ips.append(ip)
+                                                if not self.moi.contacte[uuid].ips.contains(ip):
+                                                    self.moi.contacte[uuid].ips.append(ip)
                                                     self.moi.save()
 
                                 if msg["command"] == "RSA-Auth-State":

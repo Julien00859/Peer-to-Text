@@ -6,40 +6,41 @@ import json
 from os import getcwd
 from crypto import Crypto
 import rsa
-from BeautifulJSON import BeautifulJSON
 
 class PublicProfile:
     def __init__(self, SharableProfile):
         profile = json.dumps(Crypto().crypt(SharableProfile, "super_secret_key"))
         self.uuid = profile["uuid"]
+        self.pseudo = profile["pseudo"]
         self.ips = profile["ips"]
         self.public_key = profile["public_key"]
 
-    def new(self, uuid, ips, public_key):
+    def new(self, uuid, pseudo, ips, public_key):
         self.uuid = uuid
+        self.pseudo = pseudo
         self.ips = ips
         self.public_key = public_key
 
     def getSharableProfile(self):
         #Ce n'est pas utile de crypter l'info, c'est juste pour avoir un string qui ne dise rien à un utilisateur lambda
-        return Crypto().crypt(json.dumps({"uuid":self.uuid, "ips":self.ips, "public_key":self.public_key}), "super_secret_key")
+        return Crypto().crypt(json.dumps({"uuid":self.uuid, "pseudo":self.pseudo, "ips":self.ips, "public_key":self.public_key}), "super_secret_key")
 
     def getPublicKey(self):
         n, e = self.public_key[public_str.find("(")+1:public_str.find(")")].split(", ")
         return rsa.PublicKey(int(n), int(e))
 
     def JSON(self):
-        return json.dumps(self.array())
+        return json.dumps(self.array(), indent=4, sort_keys=True)
 
     def array(self):
-        return {"uuid":self.uuid, "ips":self.ips, "public_key":self.public_key}
+        return {"uuid":self.uuid, "pseudo":self.pseudo, "ips":self.ips, "public_key":self.public_key}
 
     def __str__(self):
         return self.JSON()
 
 class PrivateProfile(PublicProfile):
     def __init__(self, openfile=""):
-        PublicProfile.new(self, None, None, None)
+        PublicProfile.new(self, None, None, None, None)
         if openfile != "":
             self.load(openfile)
 
@@ -92,7 +93,7 @@ class PrivateProfile(PublicProfile):
 
     def addUser(self, SharableProfile):
         data = json.loads(Crypto().crypt(SharableProfile, "super_secret_key"))
-        user = PublicProfile(uuid=data["uuid"],ips=data["ips"],public_key=data["public_key"])
+        user = PublicProfile(uuid=data["uuid"],pseudo=data["pseudo"],ips=data["ips"],public_key=data["public_key"])
         self.contactes[data["uuid"]] = user.array()
         self.save()
 

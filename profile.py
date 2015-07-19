@@ -98,6 +98,10 @@ class PrivateProfile(PublicProfile):
         self.save()
 
     def delUser(self, uuid):
+    	del self.contactes[uuid]
+    	self.save()
+
+    def delUser(self, uuid):
         del self.contactes[uuid]
         self.save()
 

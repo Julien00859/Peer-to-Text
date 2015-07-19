@@ -11,12 +11,10 @@ class server(threading.Thread):
     def __init__(self, moi):
         with open("config.json","r") as json_data:
             data = json.load(json_data)
-            try:
-                self.output = eval(data["output"])
-            except NameError:
-                self.output = open(data["output"], "a")
-            except:
+            if data["output"] == "sys.stdout":
                 self.output = sys.stdout
+            else:
+                self.output = data["output"]
             self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.server.bind((data["host"], data["port"])) #localhost:12345
             print("Serveur listening on {}:{}".format(data["host"], data["port"]), file=self.output)
@@ -97,9 +95,8 @@ class server(threading.Thread):
 
 	                                else:
 	                                	#profile inconnu
-	                                	if input("{} ({}) vous a ajouté à sa liste d'amis, accepter la connexion ? Oui/Non").lower().startswith("o"):
+	                                	if input("{} ({}) vous a ajouté à sa liste d'amis, accepter la connexion ? Oui/Non".format(profile.pseudo, profile.uuid)).lower().startswith("o"):
 	                                		self.moi.addUser(msg["profile"])
-	                                		self.moi.save()
 	                                		self.clients[profile.uuid] = {}
 	                                        self.clients[profile.uuid]["profile"] = profile
 	                                        self.clients[profile.uuid]["socket"] = {client:{"AuthMe":False, "AuthHim":False, "RSA-Pass":os.urandom(32), "ProfileSent":False}}

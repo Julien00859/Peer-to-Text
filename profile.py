@@ -44,10 +44,9 @@ class PrivateProfile(PublicProfile):
         if openfile != "":
             self.load(openfile)
 
-    def new(self, pseudo="", mail="", statut="", contactes={}, blacklist=[], projets={}):
+    def new(self, pseudo="", mail="", contactes={}, blacklist=[], projets={}):
         self.pseudo = pseudo
         self.mail = mail
-        self.statut = statut
         self.contactes = contactes
         self.blacklist = blacklist
         self.projets = projets
@@ -71,8 +70,8 @@ class PrivateProfile(PublicProfile):
 
     def save(self):
         #/profiles/Name_UUID
-        with open(getcwd() + "/profiles/" + self.pseudo + "_" + self.uuid,"w") as file:
-            file.write(BeautifulJSON(self.JSON()))
+        with open(getcwd() + "/profiles/" + self.pseudo + "_" + self.uuid + ".json","w") as file:
+            file.write(self.JSON())
         
     def load(self, file):
         with open(getcwd() + "/profiles/" + file, "r") as json_data:

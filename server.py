@@ -83,31 +83,31 @@ class server(threading.Thread):
                                     profile = PublicProfile(msg["profile"])
 
                                     if profile.uuid in self.moi.contactes:
-                                    	#Profile whitelisté
-    	                                if profile.uuid not in self.clients:
-    	                                	#Profile pas encore connecté
-    	                                    self.clients[profile.uuid] = {}
-    	                                    self.clients[profile.uuid]["profile"] = profile
-    	                                    self.clients[profile.uuid]["socket"] = {client:{"AuthMe":False, "AuthHim":False, "RSA-Pass":os.urandom(32), "ProfileSent":False}} 
-    	                                else:
-    	                                	#Profile déjà connecté
-    	                                    self.clients[profile.uuid]["socket"][client] = {"AuthMe":False, "AuthHim":False, "RSA-Pass":os.urandom(32), "ProfileSent":False}
-                                       client.send(json.dumps({"command":"RSA-Auth-Send","Auth-Pass":rsa.encrypt(self.clients[profile.uuid]["socket"][client]["RSA-Pass"], self.moi.contactes[profile.uuid]["public_key"])}).encode("UTF-8"))
-                                    
+                                        #Profile whitelisté
+                                        if profile.uuid not in self.clients:
+                                            #Profile pas encore connecté
+                                            self.clients[profile.uuid] = {}
+                                            self.clients[profile.uuid]["profile"] = profile
+                                            self.clients[profile.uuid]["socket"] = {client:{"AuthMe":False, "AuthHim":False, "RSA-Pass":os.urandom(32), "ProfileSent":False}} 
+                                        else:
+                                            #Profile déjà connecté
+                                            self.clients[profile.uuid]["socket"][client] = {"AuthMe":False, "AuthHim":False, "RSA-Pass":os.urandom(32), "ProfileSent":False}
+                                        client.send(json.dumps({"command":"RSA-Auth-Send","Auth-Pass":rsa.encrypt(self.clients[profile.uuid]["socket"][client]["RSA-Pass"], self.moi.contactes[profile.uuid]["public_key"])}).encode("UTF-8"))
+
 
                                     elif profile.uuid in profile.moi.blacklist:
                                         #Profile blacklisté
                                         client.close() #Oui ceci est bourrin
 
-    	                            else:
-    	                            	#Profile inconnu
-    	                            	if input("{} ({}) vous a ajouté à sa liste d'amis, accepter la connexion ? Oui/Non".format(profile.pseudo, profile.uuid)).lower().startswith("o"):
-    	                            		self.moi.addUser(msg["profile"])
-    	                            		self.clients[profile.uuid] = {}
-    	                                    self.clients[profile.uuid]["profile"] = profile
-    	                                    self.clients[profile.uuid]["socket"] = {client:{"AuthMe":False, "AuthHim":False, "RSA-Pass":os.urandom(32), "ProfileSent":False}}
-    	                                    client.send(json.dumps({"command":"RSA-Auth-Send","Auth-Pass":rsa.encrypt(self.clients[profile.uuid]["socket"][client]["RSA-Pass"], self.moi.contactes[profile.uuid]["public_key"])}).encode("UTF-8"))
-    	                                                        
+                                    else:
+                                        #Profile inconnu
+                                        if input("{} ({}) vous a ajouté à sa liste d'amis, accepter la connexion ? Oui/Non".format(profile.pseudo, profile.uuid)).lower().startswith("o"):
+                                            self.moi.addUser(msg["profile"])
+                                            self.clients[profile.uuid] = {}
+                                            self.clients[profile.uuid]["profile"] = profile
+                                            self.clients[profile.uuid]["socket"] = {client:{"AuthMe":False, "AuthHim":False, "RSA-Pass":os.urandom(32), "ProfileSent":False}}
+                                            client.send(json.dumps({"command":"RSA-Auth-Send","Auth-Pass":rsa.encrypt(self.clients[profile.uuid]["socket"][client]["RSA-Pass"], self.moi.contactes[profile.uuid]["public_key"])}).encode("UTF-8"))
+                                                                
                                 if msg["command"] == "RSA-Auth-Send":
                                     assert "Auth-Pass" in msg
                                     try:
@@ -130,7 +130,7 @@ class server(threading.Thread):
 
                                             #Mise à jour du profil local
                                             if self.clients[uuid]["profile"].pseudo != self.moi.contacte[uuid].pseudo:
-                                            	self.clients[uuid]["profile"].pseudo = self.moi.contacte[uuid].pseudo
+                                                self.clients[uuid]["profile"].pseudo = self.moi.contacte[uuid].pseudo
                                             for ip in self.clients[uuid]["profile"].ips:
                                                 if not self.moi.contacte[uuid].ips.contains(ip):
                                                     self.moi.contacte[uuid].ips.append(ip)
@@ -147,4 +147,3 @@ class server(threading.Thread):
                             print(ex)
 
         print("Server Loop Stopped", file=self.output)
-            

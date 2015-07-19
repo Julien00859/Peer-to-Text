@@ -101,8 +101,10 @@ class PrivateProfile(PublicProfile):
     	del self.contactes[uuid]
     	self.save()
 
-    def delUser(self, uuid):
-        del self.contactes[uuid]
+    def blockUser(self, uuid):
+        if uuid in self.contactes:
+            del self.contactes[uuid]
+        self.blacklist.append(uuid)
         self.save()
 
     def getPrivateKey(self):

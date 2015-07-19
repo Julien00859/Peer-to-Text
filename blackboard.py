@@ -13,26 +13,34 @@ class blackboard():
                 self.blackboard[pos[0]].insert(pos[1], c)
                 pos[0]+=1
                 pos[1]=0
+                if len(self.blackboard) == pos[0]:
+                    self.blackboard.append([])
+                else:
+                    self.blackboard.insert(pos[0], [])
             else:
                 self.blackboard[pos[0]].insert(pos[1], c)
                 pos[1]+=1
+        print(self)
 
     def erase(self, pos, length):
-        while length > 0
-            if pos[1] == 0 and length >= len(blackboard[pos[0]]):
-                del blackboard[pos[0]]
-                length-=len(blackboard[pos[0]])
-            elif len(blackboard[pos[0]]) < length:
-                del blackboard[pos[0]][pos[1], len(blackboard[pos[0]]))
-                length-=(len(blackboard[pos[0]]-pos[1]))
+        while length > 0:
+            if pos[1] == 0 and length >= len(self.blackboard[pos[0]]):
+                del self.blackboard[pos[0]]
+                length-=len(self.blackboard[pos[0]])
+            elif len(self.blackboard[pos[0]]) < length:
+                del self.blackboard[pos[0]][pos[1]:len(self.blackboard[pos[0]])]
+                length-=(len(self.blackboard[pos[0]]-pos[1]))
                 pos[0]+=1
                 pos[1]=0
             else:
-                del blackboard[pos[0]][pos[1], pos[1]+length]
+                del self.blackboard[pos[0]][pos[1]:pos[1]+length]
                 length=0
+        print(self)
 
     def __str__(self):
         s = str()
-        for x in range(len(blackboard)):
-            s+="".join(self.blackboard[x])
+        n = int(0)
+        for line in self.blackboard:
+            s+="{: 03d} ".join(line).format(n)
+            n+=1
         return s

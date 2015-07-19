@@ -1,0 +1,5 @@
+{
+    "host":"localhost",
+    "port":48256,
+    "output":"sys.stdout"
+}

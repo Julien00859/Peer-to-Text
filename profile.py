@@ -3,7 +3,7 @@ from uuid import uuid4
 from bs4 import BeautifulSoup as bs
 from urllib.request import urlopen
 import json
-from os import getcwd
+import os
 from crypto import Crypto
 import rsa
 
@@ -51,30 +51,35 @@ class PrivateProfile(PublicProfile):
         self.blacklist = blacklist
         self.projets = projets
         self.ips = [self.getIP()]
-        self.newUUID()
-        self.newRASKey()
+        self.newUUID(save=False)
+        self.newRASKey(save=False)
         self.save()
 
-    def newUUID(self):
+    def newUUID(self, save=True):
         self.uuid = str(uuid4())
-        self.save()
+        if save:
+            self.save()
 
-    def newRASKey(self):
+    def newRASKey(self, save=True):
         public_key, private_key = rsa.newkeys(512)
         self.public_key = str(public_key)
         self.private_key = str(private_key)
-        self.save()
+        if save:
+            self.save()
 
     def getIP(self):
         return bs(urlopen("http://whatismyip.org/"),"html.parser").span.getText()
 
     def save(self):
         #/profiles/Name_UUID
-        with open(getcwd() + "/profiles/" + self.pseudo + "_" + self.uuid + ".json","w") as file:
+        for p in os.listdir(os.path.join(os.getcwd(), "profiles")):
+            if p.count(self.uuid):
+                os.remove(os.path.join(os.getcwd(), "profiles", p))
+        with open(os.path.join(os.getcwd(), "profiles", self.pseudo + "_" + self.uuid + ".json"),"w") as file:
             file.write(self.JSON())
         
     def load(self, file):
-        with open(getcwd() + "/profiles/" + file, "r") as json_data:
+        with open(file, "r") as json_data:
             data = json.load(json_data)
             self.pseudo = data["pseudo"]
             self.mail = data["mail"]
@@ -97,13 +102,19 @@ class PrivateProfile(PublicProfile):
         self.save()
 
     def delUser(self, uuid):
-    	del self.contactes[uuid]
-    	self.save()
+        if uuid in self.contactes:
+           del self.contactes[uuid]
+        self.save()
 
     def blockUser(self, uuid):
         if uuid in self.contactes:
             del self.contactes[uuid]
         self.blacklist.append(uuid)
+        self.save()
+
+    def unblockUser(self, uuid):
+        if uuid in self.blacklist:
+            del self.blacklist[uuid]
         self.save()
 
     def getPrivateKey(self):

@@ -1,5 +1,6 @@
 from profile import *
 from server import *
+from blackboard import *
 from tkinter.filedialog import askopenfilename
 import json
 import os
@@ -9,7 +10,7 @@ if not "profiles" in ls:
 	os.mkdir("profiles")
 if not "config.json" in ls:
 	with open("config.json","w") as f:
-		f.write(json.dumps("host":"localhost","port":48256,"output":"sys.stdout", indent=4))
+		f.write(json.dumps({"host":"localhost","port":48256,"output":"sys.stdout"}, indent=4))
 
 profiles = list()
 print("\nSelect your profil:")
@@ -36,6 +37,7 @@ while "moi" not in locals():
 
 server = server(moi)
 server.start()
+b = blackboard()
 
 print("\nPython Shell - Type 'stop' to stop all the process.")
 while True:

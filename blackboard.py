@@ -11,16 +11,22 @@ class blackboard():
         for c in msg:
             if c == "\n":
                 self.blackboard[pos[0]].insert(pos[1], c)
+                if len(self.blackboard) == pos[0]+1:
+                    self.blackboard.append(self.blackboard[pos[0]][pos[1]+1:len(self.blackboard[pos[0]])])
+                else:
+                    self.blackboard.insert(pos[0]+1, self.blackboard[pos[0]][pos[1]+1:len(self.blackboard[pos[0]])])
+                del self.blackboard[pos[0]][pos[1]+1:len(self.blackboard[pos[0]])]
                 pos[0]+=1
                 pos[1]=0
-                if len(self.blackboard) == pos[0]:
-                    self.blackboard.append([])
-                else:
-                    self.blackboard.insert(pos[0], [])
             else:
                 self.blackboard[pos[0]].insert(pos[1], c)
                 pos[1]+=1
         print(self)
+
+    def end(self, line=None):
+        if line == None:
+            line = len(self.blackboard)-1
+        return [line, len(self.blackboard[line])]
 
     def erase(self, pos, length):
         while length > 0:
@@ -40,7 +46,8 @@ class blackboard():
     def __str__(self):
         s = str()
         n = int(0)
+        s+="    {}\n".format("".join([str(n%10) for n in range(0, len(min(self.blackboard)))])) #OUI C'EST MIN ME DEMANDE PAS POURQUOI
         for line in self.blackboard:
-            s+="{: 03d} ".join(line).format(n)
+            s+="{: 03d} ".format(n)+"".join(line)
             n+=1
         return s

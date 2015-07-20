@@ -26,7 +26,10 @@ class blackboard():
     def end(self, line=None):
         if line == None:
             line = len(self.blackboard)-1
-        return [line, len(self.blackboard[line])]
+        if len(self.blackboard[line]) == 0 or self.blackboard[line][-1] != "\n":
+            return [line, len(self.blackboard[line])]
+        else:
+            return [line, len(self.blackboard[line])-1]
 
     def erase(self, pos, length):
         while length > 0:
@@ -46,7 +49,7 @@ class blackboard():
     def __str__(self):
         s = str()
         n = int(0)
-        s+="    {}\n".format("".join([str(n%10) for n in range(0, len(min(self.blackboard)))])) #OUI C'EST MIN ME DEMANDE PAS POURQUOI
+        s+="    {}\n".format("".join([str(n%10) for n in range(0, max([len(x) for x in self.blackboard]))]))
         for line in self.blackboard:
             s+="{: 03d} ".format(n)+"".join(line)
             n+=1

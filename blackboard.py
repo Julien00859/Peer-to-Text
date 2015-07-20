@@ -1,8 +1,4 @@
 class blackboard():
-    #0 Salut à tous\n
-    #1 Je m'appelle\n
-    #2 Julien
-    #  0123456789012
 
     def __init__(self):
         self.blackboard = [[]]
@@ -23,6 +19,18 @@ class blackboard():
                 pos[1]+=1
         print(self)
 
+    def erase(self, pos, length):
+        while length > 0:
+            if length >= len(self.blackboard[pos[0]]):
+                length-=len(self.blackboard[pos[0]])-pos[1]
+                del self.blackboard[pos[0]][pos[1]:len(self.blackboard[pos[0]])]
+                self.blackboard[pos[0]].extend(self.blackboard[pos[0]+1])
+                del self.blackboard[pos[0]+1]
+            else:
+                del self.blackboard[pos[0]][pos[1]:pos[1]+length]
+                length=0
+        print(self)
+
     def end(self, line=None):
         if line == None:
             line = len(self.blackboard)-1
@@ -31,21 +39,10 @@ class blackboard():
         else:
             return [line, len(self.blackboard[line])-1]
 
-    def erase(self, pos, length):
-        while length > 0:
-            if pos[1] == 0 and length >= len(self.blackboard[pos[0]]):
-                del self.blackboard[pos[0]]
-                length-=len(self.blackboard[pos[0]])
-            elif len(self.blackboard[pos[0]]) < length:
-                del self.blackboard[pos[0]][pos[1]:len(self.blackboard[pos[0]])]
-                length-=(len(self.blackboard[pos[0]]-pos[1]))
-                pos[0]+=1
-                pos[1]=0
-            else:
-                del self.blackboard[pos[0]][pos[1]:pos[1]+length]
-                length=0
-        print(self)
-
+    #  01234567890123456789
+    #0 Salut à tous\n
+    #1 Je m'appelle Julien\n
+    #2
     def __str__(self):
         s = str()
         n = int(0)

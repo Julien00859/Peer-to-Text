@@ -9,6 +9,8 @@ import threading
 
 class server(threading.Thread):
     def __init__(self, moi):
+        """Initialise le serveur via la configuration se trouvant dans /config.json
+        Prend le premier argument le PrivateProfile du client local"""
         with open("config.json","r") as json_data:
             data = json.load(json_data)
             if data["output"] == "sys.stdout":
@@ -17,16 +19,16 @@ class server(threading.Thread):
                 self.output = data["output"]
             self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.server.bind((data["host"], data["port"])) #localhost:12345
-            print("Serveur listening on {}:{}".format(data["host"], data["port"]), file=self.output)
             self.server.listen(5)
+            print("Serveur listening on {}:{}".format(data["host"], data["port"]), file=self.output)
 
-        self.socketlist = list()
-        self.clients = dict()
-        self.running = True
-        self.moi = moi #Moi correspond à un objet PrivateProfile
+        self.socketlist = list() #Liste des sockets (pour select)
+        self.clients = dict() #mapping des clients
+        self.moi = moi #Objet PrivateProfile
         threading.Thread.__init__(self)
 
     def getUUID(self, socket):
+        """Retourne l'UUID du socket donnné, si aucun UUID n'est trouvé, on retourne None"""
         for uuid in self.clients:
             if "socket" in uuid:
                 for sock in self.clients[uuid]["socket"].keys():
@@ -36,30 +38,38 @@ class server(threading.Thread):
             return None
 
     def connect(self, uuid):
+        """Essais d'établir une connexion avec un uuid sur le réseau. Pour se faire, on
+        tente d'établir une connexion avec toutes les IPs enregistrées dans la liste des
+        ips du contacte."""
         self.clients[uuid] = {}
         self.clients[uuid]["profile"] = PublicProfile().new(self.moi.contactes[uuid])
+        port = json.dumps(open("config.json","r").read())["port"]
 
         client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         for ip in self.clients[uuid]["profile"].ips:
             try:
-                client.connect((ip, 12345))
+                client.connect((ip, port))
             except:
                 pass
             else:
                 self.socketlist.append(client)
                 client.send(json.dumps({"command":"profile","profile":self.moi.getSharableProfile()}).encode("UTF-8"))
                 self.clients[uuid]["socket"] = {client:{"AuthMe":False, "AuthHim":False, "RSA-Pass":os.urandom(32), "ProfileSent":True}}
-                break
         else:
             pass
 
     def stop(self):
+        """Stop le serveur"""
         print("Stopping Server", file=self.output)
         self.running = False
 
     def run(self):
+        """Server main loop"""
         print("Server Loop Started", file=self.output)
+        self.running = True
         while self.running:
+
+            #Listen for news clients ans and them to the socket list
             new_client, rlist, xlist = select([self.server], [], [], 0.1)
             if new_client:
                 client, client_info = server.accept()
@@ -67,14 +77,18 @@ class server(threading.Thread):
                 self.socketlist.append(client)
 
             if self.socketlist:
+                #listen for news messages and deals each message.
                 new_message, rlist, xlist = select(self.socketlist, [], [], 0.1)
                 if new_message:
                     for client in new_message:
                         try:
+                            #Convert the message sent in json to a map
                             msg = json.loads(client.recv(1024).decode("UTF-8"))
                             assert "command" in msg
+                            #Try to get the UUID for the socket that have sent the message
                             uuid = getUUID(client)
                             print("Message from {} ({}):\n{}".format(client, uuid, msg), file=self.output)
+                            
                             if uuid == None or client not in self.clients[uuid]["socket"] or self.clients[uuid]["socket"][client]["AuthMe"] == False or self.clients[uuid]["socket"][client]["AuthHim"] == False:
                                 #Non authentifié
 
@@ -146,4 +160,5 @@ class server(threading.Thread):
                         except Exception as ex:
                             print(ex)
 
-        print("Server Loop Stopped", file=self.output)
+        self.server.close()
+        print("Server Stopped", file=self.output)

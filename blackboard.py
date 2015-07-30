@@ -1,3 +1,5 @@
+# -*- coding: UTF-8 -*-
+
 class blackboard():
 
     def __init__(self):

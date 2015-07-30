@@ -1,3 +1,6 @@
+#!/usr/bin/python3.4
+# -*- coding: UTF-8 -*-
+
 from profile import *
 from server import *
 from blackboard import *

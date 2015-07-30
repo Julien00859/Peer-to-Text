@@ -1,3 +1,5 @@
+# -*- coding: UTF-8 -*-
+
 from tkinter.filedialog import asksaveasfile
 from uuid import uuid4
 from bs4 import BeautifulSoup as bs

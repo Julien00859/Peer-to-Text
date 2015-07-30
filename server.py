@@ -1,3 +1,5 @@
+# -*- coding: UTF-8 -*-
+
 from profile import *
 import json
 import os

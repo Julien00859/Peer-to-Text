@@ -1,3 +1,5 @@
+# -*- coding: UTF-8 -*-
+
 from random import randint
 
 class Crypto: 

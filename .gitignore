@@ -1,0 +1,6 @@
+__pycache__/*
+profiles/*
+*.sublime-project
+*.sublime-workspace
+*.log
+config.json

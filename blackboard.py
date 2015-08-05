@@ -1,15 +1,45 @@
 # -*- coding: UTF-8 -*-
+from collections import OrderedDict
 
 class blackboard():
 
     def __init__(self):
         """Initialisation d'un tableau noir vide de contenu"""
         self.blackboard = [[]]
-    
-    def write(self, pos, msg):
+        self.history = OrderedDict() #{uid:(add/remove, pos, msg/lenght)}
+
+    def updatepos(uid, lastuid, pos, msg):        
+        #Attention, lignes de codes longues et difficiles sans commentaire dans
+        #3
+        #2
+        #1
+        histkeys = list(self.history.keys())
+        if histkeys.count(lastuid) and histkeys[-1] != lastuid:
+            diffs = list(self.history.values())[hist.index(lastuid):len(histkeys)]
+            for diff in diffs:
+                if diff[1][0] <= pos[0]:
+                    if diff[0] <= "write":
+                        if diff[1][0] < pos[0]:
+                            pos = (pos[0] + diff[1].count("\n"), pos[1])
+
+                        elif diff[1][0] == pos[0] and diff[1][1] <= pos[1]:
+                            pos = (pos[0] + diff[2].count("\n"), pos[1] + len(diff[2][diff[2].rfind("\n"):len(diff[2])]))
+
+                    elif diff[1] == "erase":
+                        while diff[2] > 0:
+                            if diff[1][1] + diff[2] >= len(self.blackboard[diff[1][0]]):
+                                pos = (pos[0] - 1, diff[1][1])
+                            else:
+                                pos = (pos[0], diff[1][1])
+                        
+        self.history[uid] = (pos, msg)
+        return pos
+
+    def write(self, uid, lastuid, pos, msg):
         """Méthode permettant d'écrire dans le tableau noir
-        En premier argument on prend la position du premier caractère à ajouter au format [ligne, colonne]
-        En second argument on prend un string contenant le message à ajouter"""
+        En second argument on prend la position du premier caractère à ajouter au format [ligne, colonne]
+        En troisième argument on prend un string contenant le message à ajouter"""
+
         for c in msg:
             if c == "\n":
                 #Si le charactère est un saut de ligne, on l'ajoute
@@ -29,10 +59,11 @@ class blackboard():
                 pos[1]+=1
         print(self)
 
-    def erase(self, pos, length):
+    def erase(self, uuid, pos, length):
         """Méthode permettant d'effacer du contenu dans le tableau
-        En premier argument on prend la position du premier caractère à effacer
-        En second argument on prend la longueur de la chaîne à effacer"""
+        En premier argument en prend un Unique ID
+        En second argument on prend la position du premier caractère à effacer
+        En toisième argument on prend la longueur de la chaîne à effacer"""
         while length > 0:
             if length >= len(self.blackboard[pos[0]]):
                 #Dans le cas où l'effacement est sur plusieurs lignes, on efface le contenu de la ligne actuelle  
@@ -66,7 +97,6 @@ class blackboard():
         with open(file, "w") as f:
             for line in self.blackboard:
                 f.write("".join(line))
-
 
     def __str__(self):
         """Fonction qui retourne une chaine formattée de la manière suivante:

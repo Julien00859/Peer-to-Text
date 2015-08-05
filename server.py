@@ -93,7 +93,8 @@ class server(threading.Thread):
                             print("Message from {} ({}):\n{}".format(client, uuid, msg), file=self.output)
 
                             if msg["command"] == "pong":
-
+                                # self.clients[uuid]["socket"].send(json.dumps({"command":"PONG","time":TIMESTAMP DE PING}).encode("UTF-8"))
+                                pass
                             else:
                                 if uuid == None or client not in self.clients[uuid]["socket"] or self.clients[uuid]["socket"][client]["AuthMe"] == False or self.clients[uuid]["socket"][client]["AuthHim"] == False:
                                     #Non authentifié
@@ -166,15 +167,16 @@ class server(threading.Thread):
                         except Exception as ex:
                             print(ex)
 
-                for uuid in self.socketlist:
-                    if "ping" in self.clients[uuid]:
-                        self.clients[uuid]["ping"] = {}
-                        self.clients[uuid]["ping"] = (0, -1)
+                for uuid in self.clients.keys():
+                    for socket in self.clients[uuid]["socket"].keys():
+                        if "ping" in not self.clients[uuid]["socket"][socket]:
+                            self.clients[uuid]["socket"][socket]["ping"] = (0, -1)
 
-                    if (time() - self.clients[uuid]["ping"]["global"][0]) > 180:
-                        timestamp = time()
-                        self.clients[uuid]["socket"].send(json.dumps({"command":"PING","time":timestamp}).encode("UTF-8"))
-                        self.clients[uuid]["ping"] = (timestamp, -1)
+                        if (time() - self.clients[uuid]["socket"][socket]["ping"][0]) > 180:
+                            timestamp = time()
+                            self.clients[uuid]["socket"][socket]["ping"] = (timestamp, -1)
+                            socket.send(json.dumps({"command":"PING","time":timestamp}).encode("UTF-8"))
+                            
 
         self.server.close()
         print("Server Stopped", file=self.output)

@@ -1,14 +1,17 @@
 # -*- coding: UTF-8 -*-
+
 from collections import OrderedDict
 from json import load
 from sys import stdout
 
 class blackboard():
+    """Editeur de texte interne"""
 
-    def __init__(self):
-        """Initialisation d'un tableau noir vide de contenu"""
+    def __init__(self, name="blackboard", content=None):
         self.blackboard = [[]]
-        self.history = OrderedDict() #{uid:(add/remove, pos, msg/lenght)}
+        self.history = OrderedDict() #{uid:(write/erase, pos, msg/lenght)}
+        self.__name__ = name
+        self.write(content)
 
     def update(self, uid, lastuid, then, pos, msg):
         """Méthode mettant à jour le tableau noir avec gestion des collision de packet
@@ -49,7 +52,7 @@ class blackboard():
             print("Updating position: {} diff(s) found, position updated from {} to {}".format(len(diffs), str(oldpos), str(pos)), file = open(load(open("config.json"))["output"], "a") if load(open("config.json"))["output"] != "sys.stdout" else stdout)
 
         self.history[uid] = (then.__name__, pos.copy(), msg)
-        if then.__name__ == "erase" and type()
+        msg = len(msg) if then.__name__ == "erase" and type(msg) ==  type("") else msg
         then(pos, msg)
 
     def write(self, pos, msg):
@@ -129,4 +132,11 @@ class blackboard():
             #Puis par ligne on affiche le numéro
             s+="{: 03d} ".format(n)+"".join(line)
             n+=1
+        return s
+
+    def __repr__(self):
+        """Fonction qui retourne le contenu du tableau noir dans un string unique non formatté"""
+        s = str()
+        for line in self.blackboard:
+            s+="".join(line)
         return s

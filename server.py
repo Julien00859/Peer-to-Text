@@ -5,9 +5,13 @@ import os
 import rsa
 import socket
 import threading
+import urllib.request
 from time import time
 from select import select
 from sys import stdout
+
+from blackboard import *
+from permissions import *
 from profile import *
 
 class server(threading.Thread):
@@ -16,18 +20,16 @@ class server(threading.Thread):
         Prend le premier argument le PrivateProfile du client local"""
         with open("config.json","r") as json_data:
             data = json.load(json_data)
-            if data["output"] == "sys.stdout":
-                self.output = stdout
-            else:
-                self.output = open(data["output"], "a")
+            self.output = stdout if data["output"] == "sys.stdout" else open(data["output"], "a")
             self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.server.bind((data["host"], data["port"])) #localhost:12345
             self.server.listen(5)
             print("Serveur listening on {}:{}".format(data["host"], data["port"]), file=self.output)
 
         self.socketlist = list() #Liste des sockets (pour select)
-        self.clients = dict() #mapping des clients
+        self.clients = dict() #Mapping des clients
         self.moi = moi #Objet PrivateProfile
+        self.projects = {} #Mapping des projets
         threading.Thread.__init__(self)
 
     def getUUID(self, socket):
@@ -60,6 +62,22 @@ class server(threading.Thread):
                 self.clients[uuid]["socket"] = {client:{"AuthMe":False, "AuthHim":False, "RSA-Pass":os.urandom(32), "ProfileSent":True}}
         else:
             pass
+
+    def open(self, project, file=None):
+        if project in self.moi.projets:
+            if project not in self.projects:
+                self.projects[project] = {}
+                self.projects[project]["url"] = self.moi.projects[project]
+                self.projects[project]["permissions"] = permission(json.load(urllib.request.urlopen(self.projects[project]["url"]).read().decode()))
+                self.projects[project]["files"] = {}
+
+            if file != None:
+                if file not in self.projects[project]["files"]:
+                    self.projects[project]["files"][file] = {"blackboard" = blackboard(file), "clients":[]}
+                else:
+                    print("Fichier déjà ouvert:", )
+        else:
+            print("Projet inexistant")
 
     def stop(self):
         """Stop le serveur"""
@@ -162,8 +180,15 @@ class server(threading.Thread):
                                         if msg["State"] == "Success":
                                             self.clients[uuid]["socket"][client]["AuthMe"] = True
                                 else:
-                                    #Authentifié
-                                    pass
+                                    if msg["command"] == "write":
+                                        assert "file" in msg and "uid" in msg and "lastuid" in msg and "position" in msg and "content" in msg
+                                        self.blackboard["file"].update(msg["uid"], msg["lastuid"], self.blackboard.write, msg["position"], msg["content"])
+
+                                    elif msg["command"] == "erase":
+                                        assert "file" in msg and "uid" in msg and "lastuid" in msg and "position" in msg and "length" in msg
+                                        self.blackboard["file"].update(msg["uid"], msg["lastuid"], self.blackboard.write, msg["position"], msg["length"])
+
+
                         except Exception as ex:
                             print(ex)
 

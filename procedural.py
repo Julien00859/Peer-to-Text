@@ -48,16 +48,11 @@ server.start()
 #On initialise l'éditeur de texte interne
 b = blackboard()
 
-#Une console est lancée à des fins de debuging
-print("\nPython Shell - Type 'stop' to stop all the process.")
 while True:
-	try:
-		msg = input(">>> ")
-		if msg=="stop":
-			break
-		eval(msg)
-	except Exception as ex:
-		print(ex)
+	msg = input(">>> ")
+	if msg=="stop":
+		break
+	eval(msg)
 
 #On arrête le serveur et on stoppe le serveur
 print("Stopping...")

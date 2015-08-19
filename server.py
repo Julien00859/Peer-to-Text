@@ -3,11 +3,11 @@
 import json
 import os
 import rsa
-import sys
 import socket
 import threading
 from time import time
 from select import select
+from sys import stdout
 from profile import *
 
 class server(threading.Thread):
@@ -17,9 +17,9 @@ class server(threading.Thread):
         with open("config.json","r") as json_data:
             data = json.load(json_data)
             if data["output"] == "sys.stdout":
-                self.output = sys.stdout
+                self.output = stdout
             else:
-                self.output = data["output"]
+                self.output = open(data["output"], "a")
             self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.server.bind((data["host"], data["port"])) #localhost:12345
             self.server.listen(5)
@@ -109,7 +109,7 @@ class server(threading.Thread):
                                                 #Profile pas encore connecté
                                                 self.clients[profile.uuid] = {}
                                                 self.clients[profile.uuid]["profile"] = profile
-                                                self.clients[profile.uuid]["socket"] = {client:{"AuthMe":False, "AuthHim":False, "RSA-Pass":os.urandom(32), "ProfileSent":False}} 
+                                                self.clients[profile.uuid]["socket"] = {client:{"AuthMe":False, "AuthHim":False, "RSA-Pass":os.urandom(32), "ProfileSent":False}}
                                             else:
                                                 #Profile déjà connecté
                                                 self.clients[profile.uuid]["socket"][client] = {"AuthMe":False, "AuthHim":False, "RSA-Pass":os.urandom(32), "ProfileSent":False}
@@ -128,7 +128,7 @@ class server(threading.Thread):
                                                 self.clients[profile.uuid]["profile"] = profile
                                                 self.clients[profile.uuid]["socket"] = {client:{"AuthMe":False, "AuthHim":False, "RSA-Pass":os.urandom(32), "ProfileSent":False}}
                                                 client.send(json.dumps({"command":"RSA-Auth-Send","Auth-Pass":rsa.encrypt(self.clients[profile.uuid]["socket"][client]["RSA-Pass"], self.moi.contactes[profile.uuid]["public_key"])}).encode("UTF-8"))
-                                                                    
+
                                     if msg["command"] == "RSA-Auth-Send":
                                         assert "Auth-Pass" in msg
                                         try:
@@ -161,22 +161,22 @@ class server(threading.Thread):
                                         assert "State" in msg
                                         if msg["State"] == "Success":
                                             self.clients[uuid]["socket"][client]["AuthMe"] = True
-                            else:
-                                #Authentifié
-                                pass
+                                else:
+                                    #Authentifié
+                                    pass
                         except Exception as ex:
                             print(ex)
 
                 for uuid in self.clients.keys():
                     for socket in self.clients[uuid]["socket"].keys():
-                        if "ping" in not self.clients[uuid]["socket"][socket]:
+                        if "ping" not in self.clients[uuid]["socket"][socket]:
                             self.clients[uuid]["socket"][socket]["ping"] = (0, -1)
 
                         if (time() - self.clients[uuid]["socket"][socket]["ping"][0]) > 180:
                             timestamp = time()
                             self.clients[uuid]["socket"][socket]["ping"] = (timestamp, -1)
                             socket.send(json.dumps({"command":"PING","time":timestamp}).encode("UTF-8"))
-                            
+
 
         self.server.close()
         print("Server Stopped", file=self.output)

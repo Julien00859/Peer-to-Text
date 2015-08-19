@@ -1,5 +1,7 @@
 # -*- coding: UTF-8 -*-
 from collections import OrderedDict
+from json import load
+from sys import stdout
 
 class blackboard():
 
@@ -8,37 +10,52 @@ class blackboard():
         self.blackboard = [[]]
         self.history = OrderedDict() #{uid:(add/remove, pos, msg/lenght)}
 
-    def updatepos(uid, lastuid, pos, msg):        
-        #Attention, lignes de codes longues et difficiles sans commentaire dans
-        #3
-        #2
-        #1
-        histkeys = list(self.history.keys())
-        if histkeys.count(lastuid) and histkeys[-1] != lastuid:
-            diffs = list(self.history.values())[hist.index(lastuid):len(histkeys)]
-            for diff in diffs:
-                if diff[1][0] <= pos[0]:
-                    if diff[0] <= "write":
-                        if diff[1][0] < pos[0]:
-                            pos = (pos[0] + diff[1].count("\n"), pos[1])
+    def update(self, uid, lastuid, then, pos, msg):
+        """Méthode mettant à jour le tableau noir avec gestion des collision de packet
+        En premier argument on prend l'identifiant de la modification actuelle
+        En deuxième argument on prend l'identifiant de la dernière modification connu avant l'envoit de celle-ci
+        En troisième argument on prend la méthode à appeler à la suite de la gestion des collision (write, erase)
+        En quatrième argument on prend la position
+        En cinquième argument on prend le message à ajouter ou la longueur à supprimer"""
 
+        oldpos = pos.copy()
+
+        #On fait une liste des uid connues
+        histkeys = list(self.history.keys())
+
+        #Si lastuid est dans la liste mais que ce n'est pas la dernière modification alors on doit vérifier que la position de uid ne doit pas être mise à jour
+        if histkeys.count(lastuid) and histkeys[-1] != lastuid:
+            #on fait une liste des modification depuis lastuid
+            diffs = list(self.history.values())[histkeys.index(lastuid)+1:len(histkeys)]
+            for diff in diffs:
+                #pour chaque différence, on regarde si elle a eu lieu <= la position de l'actuelle modification
+                if diff[1][0] <= pos[0]:
+                    #on check si c'est un ajout et un retrait
+                    if diff[0] == "write":
+                        #si la modification a eu lieu sur une ligne antérieur à la position de la modif actuelle, on compte le nombre de saut de ligne ajouté par ces modification pour mettre à jour la ligne.
+                        if diff[1][0] < pos[0]:
+                            pos = [pos[0] + diff[2].count("\n"), pos[1]]
+
+                        #si la modification a eu lieu sur la même ligne et une colonne antérieur, on calcule les différences (ligne et colonne)
                         elif diff[1][0] == pos[0] and diff[1][1] <= pos[1]:
-                            pos = (pos[0] + diff[2].count("\n"), pos[1] + len(diff[2][diff[2].rfind("\n"):len(diff[2])]))
+                            pos = [pos[0] + diff[2].count("\n"), pos[1] + len(diff[2][diff[2].rfind("\n")+1:len(diff[2])])]
 
                     elif diff[1] == "erase":
                         while diff[2] > 0:
                             if diff[1][1] + diff[2] >= len(self.blackboard[diff[1][0]]):
-                                pos = (pos[0] - 1, diff[1][1])
+                                pos[0]-=1
                             else:
-                                pos = (pos[0], diff[1][1])
-                        
-        self.history[uid] = (pos, msg)
-        return pos
+                                pos[1] = diff[1][1]
+            print("Updating position: {} diff(s) found, position updated from {} to {}".format(len(diffs), str(oldpos), str(pos)), file = open(load(open("config.json"))["output"], "a") if load(open("config.json"))["output"] != "sys.stdout" else stdout)
 
-    def write(self, uid, lastuid, pos, msg):
+        self.history[uid] = (then.__name__, pos.copy(), msg)
+        if then.__name__ == "erase" and type()
+        then(pos, msg)
+
+    def write(self, pos, msg):
         """Méthode permettant d'écrire dans le tableau noir
-        En second argument on prend la position du premier caractère à ajouter au format [ligne, colonne]
-        En troisième argument on prend un string contenant le message à ajouter"""
+        En premier argument on prend la position du premier caractère à ajouter au format [ligne, colonne]
+        En deuxième argument on prend un string contenant le message à ajouter"""
 
         for c in msg:
             if c == "\n":
@@ -59,15 +76,14 @@ class blackboard():
                 pos[1]+=1
         print(self)
 
-    def erase(self, uuid, pos, length):
+    def erase(self, pos, length):
         """Méthode permettant d'effacer du contenu dans le tableau
-        En premier argument en prend un Unique ID
-        En second argument on prend la position du premier caractère à effacer
-        En toisième argument on prend la longueur de la chaîne à effacer"""
+        En premier argument on prend la position du premier caractère à effacer
+        En deuxième argument on prend la longueur de la chaîne à effacer"""
         while length > 0:
             if length >= len(self.blackboard[pos[0]]):
-                #Dans le cas où l'effacement est sur plusieurs lignes, on efface le contenu de la ligne actuelle  
-                #en partant de la position donnée et on déplace tout le contenu de la ligne suivante à la ligne  
+                #Dans le cas où l'effacement est sur plusieurs lignes, on efface le contenu de la ligne actuelle
+                #en partant de la position donnée et on déplace tout le contenu de la ligne suivante à la ligne
                 #actuelle tout en mettant à jour la longueur de la chaine qu'il reste à effacer
                 length-=len(self.blackboard[pos[0]])-pos[1]
                 del self.blackboard[pos[0]][pos[1]:len(self.blackboard[pos[0]])]

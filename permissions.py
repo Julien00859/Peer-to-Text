@@ -8,7 +8,7 @@ class permissions:
 
         for group in self.groups.keys():
             if "default" in group:
-                if group["default"] = True:
+                if group["default"] == True:
                     self.default = group
                     break
         else:

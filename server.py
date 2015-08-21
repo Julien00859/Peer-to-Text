@@ -1,14 +1,15 @@
 # -*- coding: UTF-8 -*-
 
 import json
-import os
-import rsa
 import socket
 import threading
 import urllib.request
 from time import time
 from select import select
 from sys import stdout
+
+from Crypto.PublicKey import RSA
+from Crypto import Random
 
 from blackboard import *
 from permissions import *
@@ -47,7 +48,7 @@ class server(threading.Thread):
         tente d'établir une connexion avec toutes les IPs enregistrées dans la liste des
         ips du contacte."""
         self.clients[uuid] = {}
-        self.clients[uuid]["profile"] = PublicProfile().new(self.moi.contactes[uuid])
+        self.clients[uuid]["profile"] = PublicProfile(pseudo = self.moi.contactes[uuid]["pseudo"], email= self.moi.contactes[uuid]["email"], ips=self.moi.contactes[uuid]["ips"], public_key=self.moi.contactes[uuid]["public_key"])
         port = json.dumps(open("config.json","r").read())["port"]
 
         client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -59,7 +60,7 @@ class server(threading.Thread):
             else:
                 self.socketlist.append(client)
                 client.send(json.dumps({"command":"profile","profile":self.moi.getSharableProfile()}).encode("UTF-8"))
-                self.clients[uuid]["socket"] = {client:{"AuthMe":False, "AuthHim":False, "RSA-Pass":os.urandom(32), "ProfileSent":True}}
+                self.clients[uuid]["socket"] = {client:{"AuthMe":False, "AuthHim":False, "RSA-Pass":Random.new().read(32)(32), "ProfileSent":True}}
         else:
             pass
 
@@ -73,7 +74,7 @@ class server(threading.Thread):
 
             if file != None:
                 if file not in self.projects[project]["files"]:
-                    self.projects[project]["files"][file] = {"blackboard" = blackboard(file), "clients":[]}
+                    self.projects[project]["files"][file] = {"blackboard":blackboard(file), "clients":[]}
                 else:
                     print("Fichier déjà ouvert:", )
         else:
@@ -119,7 +120,7 @@ class server(threading.Thread):
 
                                     if msg["command"] == "profile":
                                         assert "profile" in msg
-                                        profile = PublicProfile(msg["profile"])
+                                        profile = PublicProfile(SharableProfile=msg["profile"])
 
                                         if profile.uuid in self.moi.contactes:
                                             #Profile whitelisté
@@ -127,11 +128,11 @@ class server(threading.Thread):
                                                 #Profile pas encore connecté
                                                 self.clients[profile.uuid] = {}
                                                 self.clients[profile.uuid]["profile"] = profile
-                                                self.clients[profile.uuid]["socket"] = {client:{"AuthMe":False, "AuthHim":False, "RSA-Pass":os.urandom(32), "ProfileSent":False}}
+                                                self.clients[profile.uuid]["socket"] = {client:{"AuthMe":False, "AuthHim":False, "RSA-Pass":Random.new().read(32), "ProfileSent":False}}
                                             else:
                                                 #Profile déjà connecté
-                                                self.clients[profile.uuid]["socket"][client] = {"AuthMe":False, "AuthHim":False, "RSA-Pass":os.urandom(32), "ProfileSent":False}
-                                            client.send(json.dumps({"command":"RSA-Auth-Send","Auth-Pass":rsa.encrypt(self.clients[profile.uuid]["socket"][client]["RSA-Pass"], self.moi.contactes[profile.uuid]["public_key"])}).encode("UTF-8"))
+                                                self.clients[profile.uuid]["socket"][client] = {"AuthMe":False, "AuthHim":False, "RSA-Pass":Random.new().read(32), "ProfileSent":False}
+                                            client.send(json.dumps({"command":"RSA-Auth-Send","Auth-Pass":self.clients[profile.uuid]["profile"].public_key.encrypt(self.clients[profile.uuid]["socket"][client]["RSA-Pass"])[0]}).encode("UTF-8"))
 
 
                                         elif profile.uuid in profile.moi.blacklist:
@@ -141,23 +142,23 @@ class server(threading.Thread):
                                         else:
                                             #Profile inconnu
                                             if input("{} ({}) vous a ajouté à sa liste d'amis, accepter la connexion ? Oui/Non".format(profile.pseudo, profile.uuid)).lower().startswith("o"):
-                                                self.moi.addUser(msg["profile"])
+                                                self.moi.addUser(profile.array())
                                                 self.clients[profile.uuid] = {}
                                                 self.clients[profile.uuid]["profile"] = profile
-                                                self.clients[profile.uuid]["socket"] = {client:{"AuthMe":False, "AuthHim":False, "RSA-Pass":os.urandom(32), "ProfileSent":False}}
-                                                client.send(json.dumps({"command":"RSA-Auth-Send","Auth-Pass":rsa.encrypt(self.clients[profile.uuid]["socket"][client]["RSA-Pass"], self.moi.contactes[profile.uuid]["public_key"])}).encode("UTF-8"))
+                                                self.clients[profile.uuid]["socket"] = {client:{"AuthMe":False, "AuthHim":False, "RSA-Pass":Random.new().read(32), "ProfileSent":False}}
+                                                client.send(json.dumps({"command":"RSA-Auth-Send","Auth-Pass":self.clients[profile.uuid]["profile"].public_key.encrypt(self.clients[profile.uuid]["socket"][client]["RSA-Pass"])[0]}).encode("UTF-8"))
 
                                     if msg["command"] == "RSA-Auth-Send":
                                         assert "Auth-Pass" in msg
                                         try:
-                                            client.send(json.dumps({"command":"RSA-Auth-Recv","Auth-Pass":rsa.encrypt(rsa.decrypt(msg["Auth-Pass"], self.moi.private_key), self.moi.contactes[uuid]["public_key"])}).encode("UTF-8"))
+                                            client.send(json.dumps({"command":"RSA-Auth-Recv","Auth-Pass": RSA.importKey(self.moi.contactes[uuid]["public_key"]).encrypt(self.moi.private_key.decrypt(msg["Auth-Pass"]))[0]}).encode("UTF-8"))
                                         except:
                                             client.send(json.dumps({"command":"RSA-Auth-State","State":"Fail"}).encode("UTF-8"))
 
                                     if msg["command"] == "RSA-Auth-Recv":
                                         assert "Auth-Pass" in msg
                                         try:
-                                            assert rsa.decrypt(msg["Auth-Pass"], self.moi.private_key) == self.clients[uuid]["socket"][client]["RSA-Pass"]
+                                            assert self.moi.private_key.decrypt(msg["Auth-Pass"]) == self.clients[uuid]["socket"][client]["RSA-Pass"]
                                         except:
                                             client.send(json.dumps({"command":"RSA-Auth-State","State":"Fail"}).encode("UTF-8"))
                                         else:

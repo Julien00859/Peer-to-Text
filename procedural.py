@@ -23,8 +23,7 @@ for p in os.listdir(os.path.join(os.getcwd(),"profiles")):
 	if p.endswith(".json"):
 		profiles.append(os.path.join(os.getcwd(),"profiles", p))
 		print("{:02d}. {}\t{}".format(len(profiles), p[p.find("_")+1:p.find(".")], p[:p.find("_")]))
-print("{:02d}. New Profile".format(len(profiles)+1))
-print("{:02d}. Import Profile".format(len(profiles)+2))
+print("{:02d}. Import Profile".format(len(profiles)+1))
 
 #On demande à l'utilisateur de faire un choix
 while "moi" not in locals():
@@ -37,8 +36,6 @@ while "moi" not in locals():
 		if choix < len(profiles):
 			moi = PrivateProfile(profiles[choix])
 		elif choix == len(profiles):
-			moi = PrivateProfile().new(pseudo=input("Pseudo: "), mail=input("Mail: "))
-		elif choix == len(profiles)+1:
 			moi = PrivateProfile(askopenfilename(initialdir=os.getcwd(),title="Importer un profile"))
 
 #On initialise le serveur sur un autre thread et on écoute les requêtes

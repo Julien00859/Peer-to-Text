@@ -99,4 +99,4 @@ class PrivateProfile(PublicProfile):
         self.save()
 
     def array(self):
-        return {"pseudo":self.pseudo, "mail":self.mail, "contactes":self.contactes, "blacklist":self.blacklist, "uuid":self.uuid, "ips":self.ips, "projets":self.projets, "public_key":self.public_key.exportKey(), "private_key":self.private_key.exportKey(passphrase=self.passphrase)}
+        return {"pseudo":self.pseudo, "mail":self.mail, "contactes":self.contactes, "blacklist":self.blacklist, "uuid":self.uuid, "ips":self.ips, "projets":self.projets, "public_key":self.public_key.exportKey().decode(), "private_key":self.private_key.exportKey(passphrase=self.passphrase).decode()}

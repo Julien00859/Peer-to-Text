@@ -46,6 +46,7 @@ server.start()
 #On initialise l'éditeur de texte interne
 b = blackboard()
 
+j = "a2ef3c20-697c-46f1-89a3-e1f00443dd9b"
 while True:
 	msg = input(">>> ")
 	if msg=="stop":

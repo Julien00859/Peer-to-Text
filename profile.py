@@ -6,31 +6,29 @@ import json
 import os
 
 from Crypto.PublicKey import RSA
-from Crypto.Cipher import AES
 
 class PublicProfile:
-    def __init__(self, SharableProfile=None, uuid=None, pseudo=None, ips=None, public_key=None):
+    def __init__(self, SharableProfile=None, uuid=None, pseudo=None, ips=None, public_key=None, mail=None):
+
         if SharableProfile:
-            profile = json.dumps(AES.new(b"ultra_secret_key", 3, b"this is useless.").decrypt(SharableProfile))
-            self.uuid = profile["uuid"]
-            self.pseudo = profile["pseudo"]
-            self.ips = profile["ips"]
-            self.public_key = profile["public_key"]
+            SharableProfile = json.loads(SharableProfile)
+            self.uuid = SharableProfile["uuid"]
+            self.pseudo = SharableProfile["pseudo"]
+            self.ips = SharableProfile["ips"]
+            self.public_key = RSA.importKey(SharableProfile["public_key"])
+            self.mail = SharableProfile["mail"]
         else:
             self.uuid = uuid
             self.pseudo = pseudo
             self.ips = ips
             self.public_key = public_key
+            self.mail = mail
 
-    def getSharableProfile(self):
-        #Ce n'est pas utile de crypter l'info, c'est juste pour avoir un string qui ne dise rien à un utilisateur lambda
-        return AES.new(b"ultra_secret_key", 3, b"this is useless.").encrypt(json.dumps({"uuid":self.uuid, "pseudo":self.pseudo, "ips":self.ips, "public_key":self.public_key}))
+    def PublicJSON(self):
+        return json.dumps(self.PublicArray())
 
-    def JSON(self):
-        return json.dumps(self.array(), indent=4, sort_keys=True)
-
-    def array(self):
-        return {"uuid":self.uuid, "pseudo":self.pseudo, "ips":self.ips, "public_key":self.public_key.exportKey()}
+    def PublicArray(self):
+        return {"mail":self.mail, "uuid":self.uuid, "pseudo":self.pseudo, "ips":self.ips, "public_key":self.public_key.exportKey().decode()}
 
     def __str__(self):
         return self.JSON()
@@ -73,8 +71,8 @@ class PrivateProfile(PublicProfile):
                 self.ips.append(self.getIP())
                 self.save()
 
-    def addUser(self, profile_array):
-        user = PublicProfile(uuid=profile_array["uuid"],pseudo=profile_array["pseudo"],ips=profile_array["ips"],public_key=profile_array["public_key"])
+    def addUser(self, PublicProfile):
+        user = PublicProfile(PublicProfile)
         if profile_array["uuid"] not in self.contactes:
             self.contactes[profile_array["uuid"]] = user.array()
         self.save()
@@ -96,5 +94,8 @@ class PrivateProfile(PublicProfile):
             del self.blacklist[uuid]
         self.save()
 
-    def array(self):
+    def PrivateArray(self):
         return {"pseudo":self.pseudo, "mail":self.mail, "contactes":self.contactes, "blacklist":self.blacklist, "uuid":self.uuid, "ips":self.ips, "projets":self.projets, "public_key":self.public_key.exportKey().decode(), "private_key":self.private_key.exportKey(passphrase=self.passphrase).decode()}
+
+    def PrivateJSON(self):
+        return json.dumps(self.PrivateArray(), indent=4, sort_keys=True)

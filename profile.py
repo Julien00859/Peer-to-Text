@@ -57,7 +57,7 @@ class PrivateProfile(PublicProfile):
     def load(self, file, passphrase):
         data = json.load(open(file, "r"))
         try:
-            self.private_key = RSA.importKey(data["public_key"], passphrase=passphrase)
+            self.private_key = RSA.importKey(data["private_key"], passphrase=passphrase)
         except Exception as ex:
             print(ex)
         else:

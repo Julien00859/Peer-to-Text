@@ -7,11 +7,15 @@ from sys import stdout
 class blackboard():
     """Editeur de texte interne"""
 
-    def __init__(self, name="blackboard", content=None):
+    def __init__(self, name="blackboard", content=None, history=OrderedDict()):
         self.blackboard = [[]]
-        self.history = OrderedDict() #{uid:(write/erase, pos, msg/lenght)}
+        if content:
+            self.write([0,0], content)
+
+        if history:
+            self.history = history #{uid:(write/erase, pos, msg/lenght)}
+
         self.__name__ = name
-        self.write(content)
 
     def update(self, uid, lastuid, then, pos, msg):
         """Méthode mettant à jour le tableau noir avec gestion des collision de packet

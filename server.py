@@ -111,9 +111,11 @@ class server(threading.Thread):
                             uuid = getUUID(client)
                             print("Message from {} ({}):\n{}".format(client, uuid, msg), file=self.output)
 
+                            # self.clients[uuid]["socket"].send(json.dumps({"command":"PONG","time":TIMESTAMP DE PING}).encode("UTF-8"))
                             if msg["command"] == "pong":
-                                # self.clients[uuid]["socket"].send(json.dumps({"command":"PONG","time":TIMESTAMP DE PING}).encode("UTF-8"))
-                                pass
+                                ping = time() - msg["time"]
+                                if ():
+                                    pass
                             else:
                                 if uuid == None or client not in self.clients[uuid]["socket"] or self.clients[uuid]["socket"][client]["AuthMe"] == False or self.clients[uuid]["socket"][client]["AuthHim"] == False:
                                     #Non authentifié
@@ -196,12 +198,10 @@ class server(threading.Thread):
                 for uuid in self.clients.keys():
                     for socket in self.clients[uuid]["socket"].keys():
                         if "ping" not in self.clients[uuid]["socket"][socket]:
-                            self.clients[uuid]["socket"][socket]["ping"] = (0, -1)
+                            self.clients[uuid]["socket"][socket]["ping"] = (0, -1) # Timestamp last ping, latence (secondes) il faut que je vois pour des ms
 
                         if (time() - self.clients[uuid]["socket"][socket]["ping"][0]) > 180:
-                            timestamp = time()
-                            self.clients[uuid]["socket"][socket]["ping"] = (timestamp, -1)
-                            socket.send(json.dumps({"command":"PING","time":timestamp}).encode("UTF-8"))
+                            socket.send(json.dumps({"command":"PING","time":time()}).encode("UTF-8"))
 
 
         self.server.close()

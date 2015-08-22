@@ -1,8 +1,6 @@
 # -*- coding: UTF-8 -*-
 
 from tkinter.filedialog import asksaveasfile
-from uuid import uuid4
-from bs4 import BeautifulSoup as bs
 from urllib.request import urlopen
 import json
 import os
@@ -44,7 +42,7 @@ class PrivateProfile(PublicProfile):
             self.load(openfile, passphrase)
 
     def getIP(self):
-        return bs(urlopen("http://whatismyip.org/"),"html.parser").span.getText()
+        return json.loads(urlopen("http://www.telize.com/geoip/").read().decode())["ip"]
 
     def save(self):
         #/profiles/Name_UUID

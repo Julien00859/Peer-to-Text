@@ -3,7 +3,6 @@
 from tkinter.filedialog import asksaveasfile
 from uuid import uuid4
 from bs4 import BeautifulSoup as bs
-from getpass import getpass
 from urllib.request import urlopen
 import json
 import os
@@ -39,10 +38,10 @@ class PublicProfile:
         return self.JSON()
 
 class PrivateProfile(PublicProfile):
-    def __init__(self, openfile=""):
+    def __init__(self, openfile="", passphrase=""):
         PublicProfile()
         if openfile != "":
-            self.load(openfile)
+            self.load(openfile, passphrase)
 
     def getIP(self):
         return bs(urlopen("http://whatismyip.org/"),"html.parser").span.getText()
@@ -100,4 +99,4 @@ class PrivateProfile(PublicProfile):
         self.save()
 
     def array(self):
-        return {"pseudo":self.pseudo, "mail":self.mail, "contactes":self.contactes, "blacklist":self.blacklist, "uuid":self.uuid, "ips":self.ips, "projets":self.projets, "public_key":self.public_key.exportKey(), "private_key":self.private_keyexportKey(passphrase=self.passphrase)}
+        return {"pseudo":self.pseudo, "mail":self.mail, "contactes":self.contactes, "blacklist":self.blacklist, "uuid":self.uuid, "ips":self.ips, "projets":self.projets, "public_key":self.public_key.exportKey(), "private_key":self.private_key.exportKey(passphrase=self.passphrase)}

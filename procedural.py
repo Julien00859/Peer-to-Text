@@ -5,6 +5,7 @@ from profile import *
 from server import *
 from blackboard import *
 from tkinter.filedialog import askopenfilename
+from getpass import getpass
 import json
 import os
 
@@ -34,7 +35,7 @@ while "moi" not in locals():
 		print(ex)
 	else:
 		if choix < len(profiles):
-			moi = PrivateProfile(profiles[choix])
+			moi = PrivateProfile(profiles[choix], getpass())
 		elif choix == len(profiles):
 			moi = PrivateProfile(askopenfilename(initialdir=os.getcwd(),title="Importer un profile"))
 

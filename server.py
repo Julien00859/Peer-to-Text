@@ -48,7 +48,7 @@ class server(threading.Thread):
         tente d'établir une connexion avec toutes les IPs enregistrées dans la liste des
         ips du contacte."""
         self.clients[uuid] = {}
-        self.clients[uuid]["profile"] = PublicProfile(pseudo = self.moi.contactes[uuid]["pseudo"], email= self.moi.contactes[uuid]["email"], ips=self.moi.contactes[uuid]["ips"], public_key=self.moi.contactes[uuid]["public_key"])
+        self.clients[uuid]["profile"] = PublicProfile(pseudo = self.moi.contactes[uuid]["pseudo"], email= self.moi.contactes[uuid]["mail"], ips=self.moi.contactes[uuid]["ips"], public_key=self.moi.contactes[uuid]["public_key"])
         port = json.dumps(open("config.json","r").read())["port"]
 
         client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -60,7 +60,7 @@ class server(threading.Thread):
             else:
                 self.socketlist.append(client)
                 client.send(json.dumps({"command":"profile","profile":self.moi.getSharableProfile()}).encode("UTF-8"))
-                self.clients[uuid]["socket"] = {client:{"AuthMe":False, "AuthHim":False, "RSA-Pass":Random.new().read(32)(32), "ProfileSent":True}}
+                self.clients[uuid]["socket"] = {client:{"AuthMe":False, "AuthHim":False, "RSA-Pass":Random.new().read(32), "ProfileSent":True}}
         else:
             pass
 

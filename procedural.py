@@ -50,10 +50,7 @@ while True:
 	msg = input(">>> ")
 	if msg=="stop":
 		break
-	try:
-		eval(msg)
-	except Exception as ex:
-		print(ex)
+	eval(msg)
 
 #On arrête le serveur et on stoppe le serveur
 print("Stopping...")

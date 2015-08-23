@@ -48,7 +48,7 @@ class PrivateProfile(PublicProfile):
             if p.count(self.uuid):
                 os.remove(os.path.join(os.getcwd(), "profiles", p))
         with open(os.path.join(os.getcwd(), "profiles", self.pseudo + "_" + self.uuid + ".json"),"w") as file:
-            file.write(self.JSON())
+            file.write(self.PrivateJSON())
 
     def load(self, file, passphrase):
         data = json.load(open(file, "r"))

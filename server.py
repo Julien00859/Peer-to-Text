@@ -60,7 +60,7 @@ class server(threading.Thread):
                 pass
             else:
                 self.socketlist.append(client)
-                client.send(json.dumps({"command":"profile","profile":self.moi.PublicJSON()}).encode("UTF-8"))
+                self.send({"command":"profile","profile":self.moi.PublicJSON()})
                 self.clients[uuid]["socket"] = {client:{"AuthMe":False, "AuthHim":False, "RSA-Pass":self.random.read(64), "ProfileSent":True}}
         else:
             pass
@@ -80,6 +80,58 @@ class server(threading.Thread):
                     print("Fichier déjà ouvert:", )
         else:
             print("Projet inexistant")
+
+    def send(self, socket, msg):
+        try:
+            socket.send("{}\r\n".format(json.dumps(msg)).encode("UTF-8"))
+        except Exception as ex:
+            print(ex)
+            self.kick(socket)
+
+    def recv(self, socket):
+        """Parse the message sent by the socket
+        Convert the string recieved
+            {"command":"ping"}\r\n{"command":"write"}\r\n{"command":"erase"}\r\n
+        to the list
+            [{"command":"ping"},{"command":"write"},{"command":"erase"}]"""
+
+        try:
+            msg = socket.recv(2048).decode("UTF-8")
+        except Exception as ex:
+            print(ex)
+            self.kick(socket)
+            return []
+        else:
+            r = [[]]
+            bracket = 0
+            find = False
+            for char in msg:
+                if char == "{":
+                    bracket+=1
+                    r[-1].append(char)
+                elif char == "}":
+                    bracket-=1
+                    r[-1].append(char)
+                elif bracket == 0 and char == "\r":
+                    find = True
+                elif bracket == 0 and find == True and char == "\n":
+                    find = False
+                    r[-1] = "".join(r[-1])
+                    r.append([])
+                else:
+                    find = False
+                    r[-1].append(char)
+            return r[0:len(r)-1]
+
+    def kick(self, socket):
+        if socket in self.socketlist:
+            self.socketlist.remove(socket)
+        for uuid in self.clients.keys():
+            if "socket" in self.clients[uuid]:
+                if socket is self.clients[uuid]["socket"]:
+                    del self.clients[uuid]["socket"][socket]
+                    if len(self.clients[uuid]["socket"]) == 0:
+                        del self.clients[uuid]
 
     def stop(self):
         """Stop le serveur"""
@@ -104,108 +156,105 @@ class server(threading.Thread):
                 new_message, rlist, xlist = select(self.socketlist, [], [], 0.1)
                 if new_message:
                     for client in new_message:
+                        for msgjson in self.recv(client):
+                            msg = json.loads(msgjson)
+                            assert "command" in msg
+                            uuid = self.getUUID(client) #Try to get the UUID for the socket that have sent the message
+                            print("{} Message from {}: {}".format(strftime("%x-%X"), uuid if uuid else client, msg["command"]), file=self.output)
 
-                        msg = json.loads(client.recv(2048).decode("UTF-8")) #Convert the message sent in json to a map
-                        assert "command" in msg
-                        uuid = self.getUUID(client) #Try to get the UUID for the socket that have sent the message
-                        print("{} Message from {}: {}".format(strftime("%x-%X"), uuid if uuid else client, msg["command"]), file=self.output)
-
-                        if msg["command"] == "pong":
-                            ping = time() - msg["time"]
-                            if ():
-                                pass
-                        else:
-                            if uuid == None or client not in self.clients[uuid]["socket"] or self.clients[uuid]["socket"][client]["AuthMe"] == False or self.clients[uuid]["socket"][client]["AuthHim"] == False:
-                                #Non authentifié
-
-                                if msg["command"] == "profile":
-                                    assert "profile" in msg
-                                    profile = PublicProfile(msg["profile"])
-
-                                    if profile.uuid in self.moi.contactes:
-                                        #Profile whitelisté
-                                        if profile.uuid not in self.clients:
-                                            #Profile pas encore connecté
-                                            self.clients[profile.uuid] = {}
-                                            self.clients[profile.uuid]["profile"] = profile
-                                            self.clients[profile.uuid]["socket"] = {client:{"AuthMe":False, "AuthHim":False, "RSA-Pass":self.random.read(64), "ProfileSent":False}}
-                                        elif client not in self.clients[profile.uuid]["socket"]:
-                                            #Profile déjà connecté
-                                            self.clients[profile.uuid]["socket"][client] = {"AuthMe":False, "AuthHim":False, "RSA-Pass":self.random.read(64), "ProfileSent":False}
-
-                                        client.send(json.dumps({"command":"RSA-Auth-Send","Auth-Pass":self.clients[profile.uuid]["profile"].public_key.encrypt(self.clients[profile.uuid]["socket"][client]["RSA-Pass"], self.random.read(8))[0].decode("latin-1")}).encode("UTF-8"))
-
-                                    elif profile.uuid in profile.moi.blacklist:
-                                        #Profile blacklisté
-                                        client.close() #Oui ceci est bourrin
-
-                                    else:
-                                        #Profile inconnu
-                                        if input("{} ({}) vous a ajouté à sa liste d'amis, accepter la connexion ? Oui/Non".format(profile.pseudo, profile.uuid)).lower().startswith("o"):
-                                            self.moi.addUser(profile.array())
-                                            self.clients[profile.uuid] = {}
-                                            self.clients[profile.uuid]["profile"] = profile
-                                            self.clients[profile.uuid]["socket"] = {client:{"AuthMe":False, "AuthHim":False, "RSA-Pass":self.random.read(64), "ProfileSent":False}}
-                                            client.send(json.dumps({"command":"RSA-Auth-Send","Auth-Pass":self.clients[profile.uuid]["profile"].public_key.encrypt(self.clients[profile.uuid]["socket"][client]["RSA-Pass"], self.random.read(8))[0].decode("latin-1")}).encode("UTF-8"))
-
-                                if msg["command"] == "RSA-Auth-Send":
-                                    assert "Auth-Pass" in msg
-                                    try:
-                                        client.send(json.dumps({"command":"RSA-Auth-Recv","Auth-Pass": RSA.importKey(self.moi.contactes[uuid]["public_key"]).encrypt(self.moi.private_key.decrypt(msg["Auth-Pass"].encode("latin-1")), self.random.read(8))[0].decode("latin-1")}).encode("UTF-8"))
-                                    except:
-                                        client.send(json.dumps({"command":"RSA-Auth-State","State":"Fail"}).encode("UTF-8"))
-
-                                if msg["command"] == "RSA-Auth-Recv":
-                                    assert "Auth-Pass" in msg
-                                    try:
-                                        assert self.moi.private_key.decrypt(msg["Auth-Pass"].encode("latin-1")) == self.clients[uuid]["socket"][client]["RSA-Pass"]
-                                    except:
-                                        client.send(json.dumps({"command":"RSA-Auth-State","State":"Fail"}).encode("UTF-8"))
-                                    else:
-                                        self.clients[uuid]["socket"][client]["AuthHim"] = True
-                                        client.send(json.dumps({"command":"RSA-Auth-State","State":"Success"}).encode("UTF-8"))
-
-                                        #Mise à jour du profil local
-                                        if self.moi.contactes[uuid]["pseudo"] != self.clients[uuid]["profile"].pseudo:
-                                            self.moi.contactes[uuid]["pseudo"] = self.clients[uuid]["profile"].pseudo
-                                        if self.moi.contactes[uuid]["mail"] != self.clients[uuid]["profile"].mail:
-                                            self.moi.contactes[uuid]["mail"] = self.clients[uuid]["profile"].mail
-                                        for ip in self.clients[uuid]["profile"].ips:
-                                            if not ip in self.moi.contactes[uuid]["ips"]:
-                                                self.moi.contactes[uuid]["ips"].append(ip)
-                                                self.moi.save()
-
-                                        #Envois du profile si l'autentification n'en n'est qu'à la moitié
-                                        if self.clients[uuid]["socket"][client]["ProfileSent"] == False:
-                                            sleep(1)
-                                            client.send(json.dumps({"command":"profile","profile":self.moi.PublicJSON()}).encode("UTF-8"))
-                                            self.clients[uuid]["socket"][client]["ProfileSent"] = True
-
-                                if msg["command"] == "RSA-Auth-State":
-                                    assert "State" in msg
-                                    if msg["State"] == "Success":
-                                        self.clients[uuid]["socket"][client]["AuthMe"] = True
+                            if msg["command"] == "pong":
+                                ping = time() - msg["time"]
+                                if ():
+                                    pass
                             else:
-                                if msg["command"] == "write":
-                                    assert "file" in msg and "uid" in msg and "lastuid" in msg and "position" in msg and "content" in msg
-                                    self.blackboard["file"].update(msg["uid"], msg["lastuid"], self.blackboard.write, msg["position"], msg["content"])
+                                if uuid == None or client not in self.clients[uuid]["socket"] or self.clients[uuid]["socket"][client]["AuthMe"] == False or self.clients[uuid]["socket"][client]["AuthHim"] == False:
+                                    #Non authentifié
 
-                                elif msg["command"] == "erase":
-                                    assert "file" in msg and "uid" in msg and "lastuid" in msg and "position" in msg and "length" in msg
-                                    self.blackboard["file"].update(msg["uid"], msg["lastuid"], self.blackboard.write, msg["position"], msg["length"])
+                                    if msg["command"] == "profile":
+                                        assert "profile" in msg
+                                        profile = PublicProfile(msg["profile"])
 
-                                elif msg["command"] == "ping":
-                                    client.send(json.dumps({"command":"pong"}).encode("UTF-8"))
+                                        if profile.uuid in self.moi.contactes:
+                                            #Profile whitelisté
+                                            if profile.uuid not in self.clients:
+                                                #Profile pas encore connecté
+                                                self.clients[profile.uuid] = {}
+                                                self.clients[profile.uuid]["profile"] = profile
+                                                self.clients[profile.uuid]["socket"] = {client:{"AuthMe":False, "AuthHim":False, "RSA-Pass":self.random.read(64), "ProfileSent":False}}
+                                            elif client not in self.clients[profile.uuid]["socket"]:
+                                                #Profile déjà connecté
+                                                self.clients[profile.uuid]["socket"][client] = {"AuthMe":False, "AuthHim":False, "RSA-Pass":self.random.read(64), "ProfileSent":False}
 
-                # for uuid in self.clients.keys():
-                #     if "socket" in self.clients[uuid]:
-                #         for socket in self.clients[uuid]["socket"].keys():
-                #             if "ping" not in self.clients[uuid]["socket"][socket]:
-                #                 self.clients[uuid]["socket"][socket]["ping"] = (0, -1) # Timestamp last ping, latence (secondes) il faut que je vois pour des ms
-                #
-                #             if (time() - self.clients[uuid]["socket"][socket]["ping"][0]) > 180:
-                #                 self.clients[uuid]["socket"][socket]["ping"] = (time(), -1)
-                #                 socket.send(json.dumps({"command":"PING","time":time()}).encode("UTF-8"))
+                                            self.send(client, {"command":"RSA-Auth-Send","Auth-Pass":self.clients[profile.uuid]["profile"].public_key.encrypt(self.clients[profile.uuid]["socket"][client]["RSA-Pass"], self.random.read(8))[0].decode("latin-1")})
+
+                                        elif profile.uuid in profile.moi.blacklist:
+                                            #Profile blacklisté
+                                            client.close() #Oui ceci est bourrin
+
+                                        else:
+                                            #Profile inconnu
+                                            if input("{} ({}) vous a ajouté à sa liste d'amis, accepter la connexion ? Oui/Non".format(profile.pseudo, profile.uuid)).lower().startswith("o"):
+                                                self.moi.addUser(profile.array())
+                                                self.clients[profile.uuid] = {}
+                                                self.clients[profile.uuid]["profile"] = profile
+                                                self.clients[profile.uuid]["socket"] = {client:{"AuthMe":False, "AuthHim":False, "RSA-Pass":self.random.read(64), "ProfileSent":False}}
+                                                self.send(client, {"command":"RSA-Auth-Send","Auth-Pass":self.clients[profile.uuid]["profile"].public_key.encrypt(self.clients[profile.uuid]["socket"][client]["RSA-Pass"], self.random.read(8))[0].decode("latin-1")})
+
+                                    if msg["command"] == "RSA-Auth-Send":
+                                        assert "Auth-Pass" in msg
+                                        try:
+                                            self.send(client, {"command":"RSA-Auth-Recv","Auth-Pass": RSA.importKey(self.moi.contactes[uuid]["public_key"]).encrypt(self.moi.private_key.decrypt(msg["Auth-Pass"].encode("latin-1")), self.random.read(8))[0].decode("latin-1")})
+                                        except:
+                                            self.send(client, {"command":"RSA-Auth-State","State":"Fail"})
+
+                                    if msg["command"] == "RSA-Auth-Recv":
+                                        assert "Auth-Pass" in msg
+                                        try:
+                                            assert self.moi.private_key.decrypt(msg["Auth-Pass"].encode("latin-1")) == self.clients[uuid]["socket"][client]["RSA-Pass"]
+                                        except:
+                                            self.send(client, json.dumps({"command":"RSA-Auth-State","State":"Fail"})
+                                        else:
+                                            self.clients[uuid]["socket"][client]["AuthHim"] = True
+                                            self.send(json.dumps({"command":"RSA-Auth-State","State":"Success"})
+
+                                            #Mise à jour du profil local
+                                            if self.moi.contactes[uuid]["pseudo"] != self.clients[uuid]["profile"].pseudo:
+                                                self.moi.contactes[uuid]["pseudo"] = self.clients[uuid]["profile"].pseudo
+                                            if self.moi.contactes[uuid]["mail"] != self.clients[uuid]["profile"].mail:
+                                                self.moi.contactes[uuid]["mail"] = self.clients[uuid]["profile"].mail
+                                            for ip in self.clients[uuid]["profile"].ips:
+                                                if not ip in self.moi.contactes[uuid]["ips"]:
+                                                    self.moi.contactes[uuid]["ips"].append(ip)
+                                                    self.moi.save()
+
+                                            #Envois du profile si l'autentification n'en n'est qu'à la moitié
+                                            if self.clients[uuid]["socket"][client]["ProfileSent"] == False:
+                                                sleep(1)
+                                                self.send(client, {"command":"profile","profile":self.moi.PublicJSON()})
+                                                self.clients[uuid]["socket"][client]["ProfileSent"] = True
+
+                                    if msg["command"] == "RSA-Auth-State":
+                                        assert "State" in msg
+                                        if msg["State"] == "Success":
+                                            self.clients[uuid]["socket"][client]["AuthMe"] = True
+                                else:
+                                    if msg["command"] == "write":
+                                        assert "file" in msg and "uid" in msg and "lastuid" in msg and "position" in msg and "content" in msg
+                                        self.blackboard["file"].update(msg["uid"], msg["lastuid"], self.blackboard.write, msg["position"], msg["content"])
+
+                                    elif msg["command"] == "erase":
+                                        assert "file" in msg and "uid" in msg and "lastuid" in msg and "position" in msg and "length" in msg
+                                        self.blackboard["file"].update(msg["uid"], msg["lastuid"], self.blackboard.write, msg["position"], msg["length"])
+
+                    # for uuid in self.clients.keys():
+                    #     if "socket" in self.clients[uuid]:
+                    #         for socket in self.clients[uuid]["socket"].keys():
+                    #             if "ping" not in self.clients[uuid]["socket"][socket]:
+                    #                 self.clients[uuid]["socket"][socket]["ping"] = (0, -1) # Timestamp last ping, latence (secondes) il faut que je vois pour des ms
+                    #
+                    #             if (time() - self.clients[uuid]["socket"][socket]["ping"][0]) > 180:
+                    #                 self.clients[uuid]["socket"][socket]["ping"] = (time(), -1)
+                    #                 socket.send(json.dumps({"command":"PING","time":time()}).encode("UTF-8"))
 
         self.server.close()
         print("Server Stopped", file=self.output)

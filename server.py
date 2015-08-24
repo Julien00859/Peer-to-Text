@@ -23,12 +23,7 @@ class server(threading.Thread):
             data = json.load(json_data)
             self.output = stdout if data["output"] == "sys.stdout" else open(data["output"], "a")
             self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            try:
-                self.server.bind((data["host"], 10000)) #localhost:12345
-                self.h = 1
-            except:
-                self.server.bind((data["host"], 10001)) #localhost:12345
-                self.h = 0
+            self.server.bind((data["host"], data["port"])) #localhost:12345
             self.server.listen(5)
             print("Serveur listening on {}:{}".format(data["host"], data["port"]), file=self.output)
 
@@ -60,7 +55,7 @@ class server(threading.Thread):
         client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         for ip in self.clients[uuid]["profile"].ips:
             try:
-                client.connect((ip, 10000 + self.h))
+                client.connect((ip, port))
             except:
                 pass
             else:

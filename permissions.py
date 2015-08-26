@@ -52,3 +52,6 @@ class permissions:
             return self.users[uuid]["group"]
         else:
             return self.default
+
+    def getUsers(self):
+        return self.users

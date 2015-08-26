@@ -19,11 +19,12 @@ class server(threading.Thread):
     def __init__(self, moi):
         """Initialise le serveur via la configuration se trouvant dans /config.json
         Prend le premier argument le PrivateProfile du client local"""
+
         with open("config.json","r") as json_data:
             data = json.load(json_data)
             self.output = stdout if data["output"] == "sys.stdout" else open(data["output"], "a")
             self.server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.server.bind((data["host"], data["port"])) #localhost:12345
+            self.server.bind((data["host"], data["port"]))
             self.server.listen(5)
             print("Serveur listening on {}:{}".format(data["host"], data["port"]), file=self.output)
 
@@ -37,6 +38,7 @@ class server(threading.Thread):
         self.clients = dict() #Mapping des clients
         self.moi = moi #Objet PrivateProfile
         self.random = Random.new() #Un objet random pour ne pas avoir à le recréer à chaque fois
+        self.projects = dict()
         threading.Thread.__init__(self)
 
     def getUUID(self, socket):
@@ -70,6 +72,18 @@ class server(threading.Thread):
         else:
             pass
 
+    def open(self, project, file=None):
+        if project not in self.projects:
+            self.projects[project] = {}
+            if project in self.moi.projects:
+                self.projects[project]["permissions"] = permissions(json.loads(urllib.request.urlopen(self.moi.projects[project]).read().decode()))
+            else:
+                self.projects[project]["permissions"] = permissions(json.loads(urllib.request.urlopen("http://" + input("URL: http://")).read().decode()))
+            self.projects[project]["users"] = self.projects[project]["permissions"].getUsers()
+
+        if file:
+            self.projects[project][file] = blackboard(file, content, history)
+
     def send(self, socket, msg):
         try:
             socket.send("{}\r\n".format(json.dumps(msg)).encode("UTF-8"))
@@ -80,7 +94,7 @@ class server(threading.Thread):
     def recv(self, socket):
         """Parse the message sent by the socket
         Convert the string recieved
-            {"command":"ping"}\r\n{"command":"write"}\r\n{"command":"erase"}\r\n
+            '{"command":"ping"}\r\n{"command":"write"}\r\n{"command":"erase"}\r\n'
         to the list
             [{"command":"ping"},{"command":"write"},{"command":"erase"}]"""
 
@@ -113,6 +127,8 @@ class server(threading.Thread):
             return r[0:len(r)-1]
 
     def kick(self, socket):
+        """Kick the given socket, remove it from socketlist and from clients"""
+
         if socket in self.socketlist:
             self.socketlist.remove(socket)
         for uuid in self.clients.keys():
@@ -124,17 +140,19 @@ class server(threading.Thread):
 
     def stop(self):
         """Stop le serveur"""
+
         print("Stopping Server", file=self.output)
         self.running = False
 
     def run(self):
         """Server main loop"""
+
         print("Server Loop Started", file=self.output)
         self.running = True
         while self.running:
 
             #Listen for news clients ans and them to the socket list
-            new_client, rlist, xlist = select([self.server], [], [], 0.1)
+            new_client, rlist, xlist = select([self.server], [], [])
             if new_client:
                 client, client_info = self.server.accept()
                 print("New client:", client_info)
@@ -142,7 +160,7 @@ class server(threading.Thread):
 
             if self.socketlist:
                 #listen for news messages and deals each message.
-                new_message, rlist, xlist = select(self.socketlist, [], [], 0.1)
+                new_message, rlist, xlist = select(self.socketlist, [], [])
                 if new_message:
                     for client in new_message:
                         for msgjson in self.recv(client):
@@ -151,37 +169,35 @@ class server(threading.Thread):
                             uuid = self.getUUID(client) #Try to get the UUID for the socket that have sent the message
                             print("{} Message from {}: {}".format(strftime("%x-%X"), uuid if uuid else client, msg["command"]), file=self.output)
 
-                            if msg["command"] == "pong":
+                            #Commands with or without authentication
+                            if msg["command"] == "PING":
+                                assert "time" in msg
                                 ping = time() - msg["time"]
-                                if ():
-                                    pass
+
                             else:
+                                
                                 if uuid == None or client not in self.clients[uuid]["socket"] or self.clients[uuid]["socket"][client]["AuthMe"] == False or self.clients[uuid]["socket"][client]["AuthHim"] == False:
-                                    #Non authentifié
+                                    #Commands without authentication
 
                                     if msg["command"] == "profile":
                                         assert "profile" in msg
                                         profile = PublicProfile(msg["profile"])
 
-                                        if profile.uuid in self.moi.contactes:
-                                            #Profile whitelisté
-                                            if profile.uuid not in self.clients:
-                                                #Profile pas encore connecté
+                                        if profile.uuid in self.moi.contactes: #In Whitelist
+                                            if profile.uuid not in self.clients: #Not connected yet
                                                 self.clients[profile.uuid] = {}
                                                 self.clients[profile.uuid]["profile"] = profile
                                                 self.clients[profile.uuid]["socket"] = {client:{"AuthMe":False, "AuthHim":False, "RSA-Pass":self.random.read(64), "ProfileSent":False}}
-                                            elif client not in self.clients[profile.uuid]["socket"]:
-                                                #Profile déjà connecté
+
+                                            elif client not in self.clients[profile.uuid]["socket"]: #Already connected (on an other socket)
                                                 self.clients[profile.uuid]["socket"][client] = {"AuthMe":False, "AuthHim":False, "RSA-Pass":self.random.read(64), "ProfileSent":False}
 
                                             self.send(client, {"command":"RSA-Auth-Send","Auth-Pass":self.clients[profile.uuid]["profile"].public_key.encrypt(self.clients[profile.uuid]["socket"][client]["RSA-Pass"], self.random.read(8))[0].decode("latin-1")})
 
-                                        elif profile.uuid in profile.moi.blacklist:
-                                            #Profile blacklisté
+                                        elif profile.uuid in profile.moi.blacklist: #In blacklist
                                             client.close() #Oui ceci est bourrin
 
-                                        else:
-                                            #Profile inconnu
+                                        else: #Unknown profile
                                             if input("{} ({}) vous a ajouté à sa liste d'amis, accepter la connexion ? Oui/Non".format(profile.pseudo, profile.uuid)).lower().startswith("o"):
                                                 self.moi.addUser(profile.array())
                                                 self.clients[profile.uuid] = {}
@@ -206,7 +222,6 @@ class server(threading.Thread):
                                             self.clients[uuid]["socket"][client]["AuthHim"] = True
                                             self.send(json.dumps({"command":"RSA-Auth-State","State":"Success"})
 
-                                            #Mise à jour du profil local
                                             if self.moi.contactes[uuid]["pseudo"] != self.clients[uuid]["profile"].pseudo:
                                                 self.moi.contactes[uuid]["pseudo"] = self.clients[uuid]["profile"].pseudo
                                             if self.moi.contactes[uuid]["mail"] != self.clients[uuid]["profile"].mail:
@@ -216,7 +231,6 @@ class server(threading.Thread):
                                                     self.moi.contactes[uuid]["ips"].append(ip)
                                                     self.moi.save()
 
-                                            #Envois du profile si l'autentification n'en n'est qu'à la moitié
                                             if self.clients[uuid]["socket"][client]["ProfileSent"] == False:
                                                 sleep(1)
                                                 self.send(client, {"command":"profile","profile":self.moi.PublicJSON()})
@@ -227,31 +241,32 @@ class server(threading.Thread):
                                         if msg["State"] == "Success":
                                             self.clients[uuid]["socket"][client]["AuthMe"] = True
                                 else:
+                                    #Commands that needs authentication
                                     pass
 
-                    # for uuid in self.clients.keys():
-                    #     if "socket" in self.clients[uuid]:
-                    #         for socket in self.clients[uuid]["socket"].keys():
-                    #             if "ping" not in self.clients[uuid]["socket"][socket]:
-                    #                 self.clients[uuid]["socket"][socket]["ping"] = (0, -1) # Timestamp last ping, latence (secondes) il faut que je vois pour des ms
-                    #
-                    #             if (time() - self.clients[uuid]["socket"][socket]["ping"][0]) > 180:
-                    #                 self.clients[uuid]["socket"][socket]["ping"] = (time(), -1)
-                    #                 socket.send(json.dumps({"command":"PING","time":time()}).encode("UTF-8"))
-
-
-            #Listen for news clients ans and them to the socket list
+            #Waiting to link 1 UUID
             if "IDE_client" not in self.__dict__.keys()
-                IDE, rlist, xlist = select([self.IDE], [], [], 0.1)
+                IDE, rlist, xlist = select([self.IDE], [], [])
                 if IDE:
-                    self.IDE_client = self.server.accept()[0]
-                    print("IDE Hooked", file=self.output)
+                    self.IDE_client, info = self.server.accept()
+                    print("IDE Hooked:", info, file=self.output)
 
-            else:
-                IDE, rlist, xlist = select([self.IDE_client], [], [], 0.1)
+            else: #UUID linked, waiting messages
+                IDE, rlist, xlist = select([self.IDE_client], [], [])
                 if IDE:
                     for IDE_message in json.loads(self.recv(IDE[0])):
                         print(IDE_message, file=self.output)
+
+            #Ping controle
+            for uuid in self.clients.keys():
+                if "socket" in self.clients[uuid]:
+                    for socket in self.clients[uuid]["socket"].keys():
+                        if "ping" not in self.clients[uuid]["socket"][socket]:
+                            self.clients[uuid]["socket"][socket]["ping"] = (0, -1) # Timestamp last ping, latence (secondes) il faut que je vois pour des ms
+            
+                        if (time() - self.clients[uuid]["socket"][socket]["ping"][0]) > 180:
+                            self.clients[uuid]["socket"][socket]["ping"] = (time(), -1)
+                            self.send(socket, {"command":"PING","time":time()})
 
 
         self.server.close()

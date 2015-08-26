@@ -1,5 +1,7 @@
 {
     "host":"0.0.0.0",
-    "port":48256,
+    "port":48255,
+    "IDE_host":"localhost",
+    "IDE_port":48256,
     "output":"sys.stdout"
 }

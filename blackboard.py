@@ -4,17 +4,15 @@ from collections import OrderedDict
 from json import load
 from sys import stdout
 
-class blackboard():
+class blackboard(Thread):
     """Editeur de texte interne"""
 
     def __init__(self, name="blackboard", content=None, history=OrderedDict()):
         self.blackboard = [[]]
         if content:
             self.write([0,0], content)
-
         if history:
             self.history = history #{uid:(write/erase, pos, msg/lenght)}
-
         self.__name__ = name
 
     def update(self, uid, lastuid, then, pos, msg):
@@ -47,12 +45,17 @@ class blackboard():
                         elif diff[1][0] == pos[0] and diff[1][1] <= pos[1]:
                             pos = [pos[0] + diff[2].count("\n"), pos[1] + len(diff[2][diff[2].rfind("\n")+1:len(diff[2])])]
 
-                    elif diff[1] == "erase":
+                    elif diff[0] == "erase":
                         while diff[2] > 0:
                             if diff[1][1] + diff[2] >= len(self.blackboard[diff[1][0]]):
                                 pos[0]-=1
+                                diff[1][0]-=1
+                                diff[1][1]=0
+                                diff[2]-= (len(self.blackboard[diff[1][0]])-1 - diff[1][1])
                             else:
                                 pos[1] = diff[1][1]
+                                diff[2]-= (len(self.blackboard[diff[1][0]])-1 - diff[1][1])
+                                
             print("Updating position: {} diff(s) found, position updated from {} to {}".format(len(diffs), str(oldpos), str(pos)), file = open(load(open("config.json"))["output"], "a") if load(open("config.json"))["output"] != "sys.stdout" else stdout)
 
         self.history[uid] = (then.__name__, pos.copy(), msg)

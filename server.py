@@ -27,10 +27,15 @@ class server(threading.Thread):
             self.server.listen(5)
             print("Serveur listening on {}:{}".format(data["host"], data["port"]), file=self.output)
 
+            self.IDE = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.IDE.bind((data["IDE_host"], data["IDE_port"]))
+            self.IDE.listen(1)
+            print("IDE listening on {}:{}".format(data["host"], data["IDE_port"]), file=self.output)
+
+
         self.socketlist = list() #Liste des sockets (pour select)
         self.clients = dict() #Mapping des clients
         self.moi = moi #Objet PrivateProfile
-        self.projects = {} #Mapping des projets
         self.random = Random.new() #Un objet random pour ne pas avoir à le recréer à chaque fois
         threading.Thread.__init__(self)
 
@@ -64,22 +69,6 @@ class server(threading.Thread):
                 self.clients[uuid]["socket"] = {client:{"AuthMe":False, "AuthHim":False, "RSA-Pass":self.random.read(64), "ProfileSent":True}}
         else:
             pass
-
-    def open(self, project, file=None):
-        if project in self.moi.projets:
-            if project not in self.projects:
-                self.projects[project] = {}
-                self.projects[project]["url"] = self.moi.projects[project]
-                self.projects[project]["permissions"] = permission(json.load(urllib.request.urlopen(self.projects[project]["url"]).read().decode()))
-                self.projects[project]["files"] = {}
-
-            if file != None:
-                if file not in self.projects[project]["files"]:
-                    self.projects[project]["files"][file] = {"blackboard":blackboard(file), "clients":[]}
-                else:
-                    print("Fichier déjà ouvert:", )
-        else:
-            print("Projet inexistant")
 
     def send(self, socket, msg):
         try:
@@ -238,13 +227,7 @@ class server(threading.Thread):
                                         if msg["State"] == "Success":
                                             self.clients[uuid]["socket"][client]["AuthMe"] = True
                                 else:
-                                    if msg["command"] == "write":
-                                        assert "file" in msg and "uid" in msg and "lastuid" in msg and "position" in msg and "content" in msg
-                                        self.blackboard["file"].update(msg["uid"], msg["lastuid"], self.blackboard.write, msg["position"], msg["content"])
-
-                                    elif msg["command"] == "erase":
-                                        assert "file" in msg and "uid" in msg and "lastuid" in msg and "position" in msg and "length" in msg
-                                        self.blackboard["file"].update(msg["uid"], msg["lastuid"], self.blackboard.write, msg["position"], msg["length"])
+                                    pass
 
                     # for uuid in self.clients.keys():
                     #     if "socket" in self.clients[uuid]:
@@ -255,6 +238,21 @@ class server(threading.Thread):
                     #             if (time() - self.clients[uuid]["socket"][socket]["ping"][0]) > 180:
                     #                 self.clients[uuid]["socket"][socket]["ping"] = (time(), -1)
                     #                 socket.send(json.dumps({"command":"PING","time":time()}).encode("UTF-8"))
+
+
+            #Listen for news clients ans and them to the socket list
+            if "IDE_client" not in self.__dict__.keys()
+                IDE, rlist, xlist = select([self.IDE], [], [], 0.1)
+                if IDE:
+                    self.IDE_client = self.server.accept()[0]
+                    print("IDE Hooked", file=self.output)
+
+            else:
+                IDE, rlist, xlist = select([self.IDE_client], [], [], 0.1)
+                if IDE:
+                    for IDE_message in json.loads(self.recv(IDE[0])):
+                        print(IDE_message, file=self.output)
+
 
         self.server.close()
         print("Server Stopped", file=self.output)

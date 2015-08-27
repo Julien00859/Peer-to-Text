@@ -67,9 +67,12 @@ class PrivateProfile(PublicProfile):
             self.projets = data["projets"]
             self.public_key = RSA.importKey(data["public_key"])
 
-            if self.ips.count(self.getIP())==0:
-                self.ips.append(self.getIP())
-                self.save()
+            try:
+                if self.ips.count(self.getIP())==0:
+                    self.ips.append(self.getIP())
+                    self.save()
+            except:
+                print("Impossible de récupérer l'ip actuel, profile par défaut utilisé")
 
     def addUser(self, PublicProfile):
         user = PublicProfile(PublicProfile)

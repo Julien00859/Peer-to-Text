@@ -4,16 +4,24 @@ from collections import OrderedDict
 from json import load
 from sys import stdout
 
-class blackboard(Thread):
+class blackboard():
     """Editeur de texte interne"""
 
-    def __init__(self, name="blackboard", content=None, history=OrderedDict()):
+    def __init__(self, name="blackboard", content=None, history=None):
         self.blackboard = [[]]
         if content:
             self.write([0,0], content)
         if history:
             self.history = history #{uid:(write/erase, pos, msg/lenght)}
+        else:
+            self.history = OrderedDict()
         self.__name__ = name
+
+    def lastUID(self):
+        if self.history:
+            return list(self.history.keys())[-1]
+        else:
+            return None
 
     def update(self, uid, lastuid, then, pos, msg):
         """Méthode mettant à jour le tableau noir avec gestion des collision de packet
@@ -58,9 +66,9 @@ class blackboard(Thread):
                                 
             print("Updating position: {} diff(s) found, position updated from {} to {}".format(len(diffs), str(oldpos), str(pos)), file = open(load(open("config.json"))["output"], "a") if load(open("config.json"))["output"] != "sys.stdout" else stdout)
 
-        self.history[uid] = (then.__name__, pos.copy(), msg)
-        msg = len(msg) if then.__name__ == "erase" and type(msg) ==  type("") else msg
-        then(pos, msg)
+        self.history[uid] = (then, pos.copy(), msg)
+        msg = len(msg) if then == "erase" and type(msg) ==  type("") else msg
+        self.write(pos, msg) if then == "write" else self.erase(pos, msg)
 
     def write(self, pos, msg):
         """Méthode permettant d'écrire dans le tableau noir
@@ -84,26 +92,28 @@ class blackboard(Thread):
                 #On ajoute le caractère et on met à jour la position
                 self.blackboard[pos[0]].insert(pos[1], c)
                 pos[1]+=1
-        print(self)
 
     def erase(self, pos, length):
         """Méthode permettant d'effacer du contenu dans le tableau
         En premier argument on prend la position du premier caractère à effacer
         En deuxième argument on prend la longueur de la chaîne à effacer"""
-        while length > 0:
-            if length >= len(self.blackboard[pos[0]]):
-                #Dans le cas où l'effacement est sur plusieurs lignes, on efface le contenu de la ligne actuelle
-                #en partant de la position donnée et on déplace tout le contenu de la ligne suivante à la ligne
-                #actuelle tout en mettant à jour la longueur de la chaine qu'il reste à effacer
-                length-=len(self.blackboard[pos[0]])-pos[1]
-                del self.blackboard[pos[0]][pos[1]:len(self.blackboard[pos[0]])]
-                self.blackboard[pos[0]].extend(self.blackboard[pos[0]+1])
-                del self.blackboard[pos[0]+1]
-            else:
-                #Si l'effacement n'est que sur le ligne actuelle, on supprime une chaine de longueur length à partir de la position donnée
-                del self.blackboard[pos[0]][pos[1]:pos[1]+length]
-                length=0
-        print(self)
+        if len(self.blackboard[0]) > 0:
+            while length > 0:
+                if length >= len(self.blackboard[pos[0]]):
+                    #Dans le cas où l'effacement est sur plusieurs lignes, on efface le contenu de la ligne actuelle
+                    #en partant de la position donnée et on déplace tout le contenu de la ligne suivante à la ligne
+                    #actuelle tout en mettant à jour la longueur de la chaine qu'il reste à effacer
+                    length-=len(self.blackboard[pos[0]])-pos[1]
+                    del self.blackboard[pos[0]][pos[1]:len(self.blackboard[pos[0]])]
+                    if len(self.blackboard[pos[0]]) > 0:
+                        self.blackboard[pos[0]].extend(self.blackboard[pos[0]+1])
+                        del self.blackboard[pos[0]+1]
+                    elif len(self.blackboard) > 1:
+                        del self.blackboard[pos[0]]
+                else:
+                    #Si l'effacement n'est que sur le ligne actuelle, on supprime une chaine de longueur length à partir de la position donnée
+                    del self.blackboard[pos[0]][pos[1]:pos[1]+length]
+                    length=0
 
     def end(self, line=None):
         """Fonction retourant la position du dernier caractère du tableau ou de la ligne si elle est précisée"""

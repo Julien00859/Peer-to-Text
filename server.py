@@ -1,12 +1,14 @@
 # -*- coding: UTF-8 -*-
 
 import json
+import os.path
 import socket
 import threading
 import urllib.request
 from time import time, sleep, strftime
 from select import select
 from sys import stdout
+from uuid import uuid4
 
 from Crypto.PublicKey import RSA
 from Crypto import Random
@@ -74,15 +76,17 @@ class server(threading.Thread):
 
     def open(self, project, file=None):
         if project not in self.projects:
+            print("Project opened:", project, file=self.output)
             self.projects[project] = {}
-            if project in self.moi.projects:
-                self.projects[project]["permissions"] = permissions(json.loads(urllib.request.urlopen(self.moi.projects[project]).read().decode()))
-            else:
-                self.projects[project]["permissions"] = permissions(json.loads(urllib.request.urlopen("http://" + input("URL: http://")).read().decode()))
-            self.projects[project]["users"] = self.projects[project]["permissions"].getUsers()
+            # if project in self.moi.projects:
+            #     self.projects[project]["permissions"] = permissions(json.loads(urllib.request.urlopen(self.moi.projects[project]).read().decode()))
+            # else:
+            #     self.projects[project]["permissions"] = permissions(json.loads(urllib.request.urlopen("http://" + input("URL: http://")).read().decode()))
+            # self.projects[project]["users"] = self.projects[project]["permissions"].getUsers()
 
         if file:
-            self.projects[project][file] = blackboard(file, content, history)
+            print("File opened:", file, file=self.output)
+            self.projects[project][os.path.split(file)[-1]] = blackboard(name=os.path.split(file)[-1], content=open(file, "r").read())
 
     def send(self, socket, msg):
         try:
@@ -100,11 +104,12 @@ class server(threading.Thread):
 
         try:
             msg = socket.recv(2048).decode("UTF-8")
-        except Exception as ex:
-            print(ex)
+        except:
             self.kick(socket)
             return []
         else:
+            uuid = self.getUUID(socket) #Try to get the UUID for the socket that have sent the message
+            print("{} Message from {}: {}".format(strftime("%x-%X"), uuid if uuid else "IDE" if socket==self.IDE_client else socket, msg), file=self.output)
             r = [[]]
             bracket = 0
             find = False
@@ -152,7 +157,7 @@ class server(threading.Thread):
         while self.running:
 
             #Listen for news clients ans and them to the socket list
-            new_client, rlist, xlist = select([self.server], [], [])
+            new_client, rlist, xlist = select([self.server], [], [], 0.05)
             if new_client:
                 client, client_info = self.server.accept()
                 print("New client:", client_info)
@@ -160,14 +165,13 @@ class server(threading.Thread):
 
             if self.socketlist:
                 #listen for news messages and deals each message.
-                new_message, rlist, xlist = select(self.socketlist, [], [])
+                new_message, rlist, xlist = select(self.socketlist, [], [], 0.05)
                 if new_message:
                     for client in new_message:
                         for msgjson in self.recv(client):
                             msg = json.loads(msgjson)
                             assert "command" in msg
                             uuid = self.getUUID(client) #Try to get the UUID for the socket that have sent the message
-                            print("{} Message from {}: {}".format(strftime("%x-%X"), uuid if uuid else client, msg["command"]), file=self.output)
 
                             #Commands with or without authentication
                             if msg["command"] == "PING":
@@ -217,10 +221,10 @@ class server(threading.Thread):
                                         try:
                                             assert self.moi.private_key.decrypt(msg["Auth-Pass"].encode("latin-1")) == self.clients[uuid]["socket"][client]["RSA-Pass"]
                                         except:
-                                            self.send(client, json.dumps({"command":"RSA-Auth-State","State":"Fail"})
+                                            self.send(client, json.dumps({"command":"RSA-Auth-State","State":"Fail"}))
                                         else:
                                             self.clients[uuid]["socket"][client]["AuthHim"] = True
-                                            self.send(json.dumps({"command":"RSA-Auth-State","State":"Success"})
+                                            self.send(json.dumps({"command":"RSA-Auth-State","State":"Success"}))
 
                                             if self.moi.contactes[uuid]["pseudo"] != self.clients[uuid]["profile"].pseudo:
                                                 self.moi.contactes[uuid]["pseudo"] = self.clients[uuid]["profile"].pseudo
@@ -245,17 +249,22 @@ class server(threading.Thread):
                                     pass
 
             #Waiting to link 1 UUID
-            if "IDE_client" not in self.__dict__.keys()
-                IDE, rlist, xlist = select([self.IDE], [], [])
+            if "IDE_client" not in self.__dict__.keys():
+                IDE, rlist, xlist = select([self.IDE], [], [], 0.05)
                 if IDE:
-                    self.IDE_client, info = self.server.accept()
-                    print("IDE Hooked:", info, file=self.output)
-
+                    self.IDE_client, info = self.IDE.accept()
+                    print("IDE Linked:", info, file=self.output)
+                
             else: #UUID linked, waiting messages
-                IDE, rlist, xlist = select([self.IDE_client], [], [])
-                if IDE:
-                    for IDE_message in json.loads(self.recv(IDE[0])):
-                        print(IDE_message, file=self.output)
+                new_message, rlist, xlist = select([self.IDE_client], [], [], 0.05)
+                if new_message:
+                    for client in new_message:
+                        for msg in [json.loads(msgjson) for msgjson in self.recv(client)]:
+                            assert "command" in msg
+                            if msg["command"] == "write" or msg["command"] == "erase":
+                                assert "file" in msg and "msg" in msg and "pos" in msg and "length" in msg
+                                if msg["file"] in self.projects["project"]:
+                                    self.projects["project"][msg["file"]].update(uid=uuid4(), lastuid=self.projects["project"][msg["file"]].lastUID(), then=msg["command"], pos=msg["pos"], msg=msg["msg"] if msg["msg"] else msg["length"])
 
             #Ping controle
             for uuid in self.clients.keys():
@@ -271,3 +280,8 @@ class server(threading.Thread):
 
         self.server.close()
         print("Server Stopped", file=self.output)
+        try:
+            self.IDE.close()
+            print("IDE Unlinked", file=self.output)
+        except:
+            pass

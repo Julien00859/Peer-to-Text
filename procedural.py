@@ -46,6 +46,9 @@ server.start()
 #On initialise l'éditeur de texte interne
 b = blackboard()
 
+#On ouvre un projet par defaut
+server.open("project", "C:/Users/Julien/Desktop/test.txt")
+
 while True:
 	msg = input(">>> ")
 	if msg=="stop":

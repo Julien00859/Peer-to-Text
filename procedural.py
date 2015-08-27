@@ -43,11 +43,11 @@ while "moi" not in locals():
 server = server(moi)
 server.start()
 
-#On initialise l'éditeur de texte interne
+#On initialise un editeur de texte pour des testes
 b = blackboard()
 
 #On ouvre un projet par defaut
-server.open("project", "C:/Users/Julien/Desktop/test.txt")
+server.open("project", "test.txt")
 
 while True:
 	msg = input(">>> ")

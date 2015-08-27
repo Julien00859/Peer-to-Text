@@ -8,7 +8,7 @@ import urllib.request
 from time import time, sleep, strftime
 from select import select
 from sys import stdout
-from uuid import uuid4
+from uuid import uuid1
 
 from Crypto.PublicKey import RSA
 from Crypto import Random
@@ -262,9 +262,9 @@ class server(threading.Thread):
                         for msg in [json.loads(msgjson) for msgjson in self.recv(client)]:
                             assert "command" in msg
                             if msg["command"] == "write" or msg["command"] == "erase":
-                                assert "file" in msg and "msg" in msg and "pos" in msg and "length" in msg
+                                assert "file" in msg and "pos" in msg and ("msg" in msg or "length" in msg)
                                 if msg["file"] in self.projects["project"]:
-                                    self.projects["project"][msg["file"]].update(uid=uuid4(), lastuid=self.projects["project"][msg["file"]].lastUID(), then=msg["command"], pos=msg["pos"], msg=msg["msg"] if msg["msg"] else msg["length"])
+                                    self.projects["project"][msg["file"]].update(uid=uuid1(), lastuid=self.projects["project"][msg["file"]].lastUID(), then=msg["command"], pos=msg["pos"], msg=msg["msg"] if msglng["command"]=="write" else msg["length"])
 
             #Ping controle
             for uuid in self.clients.keys():

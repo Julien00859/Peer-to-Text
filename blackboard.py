@@ -23,7 +23,7 @@ class blackboard():
         else:
             return None
 
-    def update(self, uid, lastuid, then, pos, msg):
+    def update(self, uid, lastuid, then, pos, msglng):
         """Méthode mettant à jour le tableau noir avec gestion des collision de packet
         En premier argument on prend l'identifiant de la modification actuelle
         En deuxième argument on prend l'identifiant de la dernière modification connu avant l'envoit de celle-ci
@@ -66,8 +66,8 @@ class blackboard():
                                 
             print("Updating position: {} diff(s) found, position updated from {} to {}".format(len(diffs), str(oldpos), str(pos)), file = open(load(open("config.json"))["output"], "a") if load(open("config.json"))["output"] != "sys.stdout" else stdout)
 
-        self.history[uid] = (then, pos.copy(), msg)
-        msg = len(msg) if then == "erase" and type(msg) ==  type("") else msg
+        self.history[uid] = (then, pos.copy(), msglng)
+        msg = len(msglng) if then == "erase" and type(msglng) ==  type("") else msglng
         self.write(pos, msg) if then == "write" else self.erase(pos, msg)
 
     def write(self, pos, msg):

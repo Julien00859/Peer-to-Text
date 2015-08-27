@@ -31,7 +31,7 @@ class PublicProfile:
         return {"mail":self.mail, "uuid":self.uuid, "pseudo":self.pseudo, "ips":self.ips, "public_key":self.public_key.exportKey().decode()}
 
     def __str__(self):
-        return self.JSON()
+        return self.PublicJSON()
 
 class PrivateProfile(PublicProfile):
     def __init__(self, openfile="", passphrase=""):
